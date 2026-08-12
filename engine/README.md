@@ -35,7 +35,8 @@ pack. A new reskin is: copy that folder, then edit/replace:
 | `cityModels.js` | Building GLB manifest — `CityModels.spawn/FULL_BUILDING_KEYS/LOW_BUILDING_KEYS/VARIANT_KEYS` |
 | `trafficVehicles.js` | Vehicle GLB manifest — `TrafficVehicles.pick()/KEYS`. **Optional**: omit this file (and don't register any vehicle keys) to run a car-free reskin; `runner.js` detects a missing/empty `TrafficVehicles.KEYS` and forces vehicle-row chance to 0 instead of crashing |
 | `character.js` | Player rig/animation loading. Falls back to a procedural box character if it fails, so this is optional too |
-| `theme.js` | Every tuning number — speed, camera framing, track scale, scoring curve, city row layout, obstacle-class weights, rest-stretch cadence. **This is the file you'll edit most** |
+| `theme.js` | Every game-feel tuning number — speed, camera framing, track scale, scoring curve, city row layout, obstacle-class weights, rest-stretch cadence. Static per reskin, not meant to change live |
+| `brand.js` | Sponsor-controlled: the collectible's name + color, and the score/multiplier/best labels. This is the layer meant to be live-patchable later (see its header) — separate from `theme.js` on purpose |
 | `index.html` | Branding copy (title/subtitle/game-over text) and the CSS custom-property overrides for brand colors (`:root` block — see `engine/runner.css`'s header) |
 | `config.js` (gitignored, copy from `config.example.js`) | Supabase project URL/key + `SCORES_TABLE` for this deployment |
 

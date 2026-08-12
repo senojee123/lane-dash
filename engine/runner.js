@@ -923,7 +923,32 @@ const pauseScreen = document.getElementById('pause-screen');
 const pauseScoreEl = document.getElementById('pause-score');
 const pauseCoinsEl = document.getElementById('pause-coins');
 
-hudHigh.textContent = 'Best: ' + Save.high;
+// ---------------------------------------------------------------------------
+// BRAND CONFIG — sponsor-controlled labels/color (brand.js), applied once
+// here at startup. Kept as its own function, not inlined, so a future
+// hot-reload handler can call it again after mutating RunnerBrand's fields
+// without needing to know anything else about init — see brand.js's header.
+// ---------------------------------------------------------------------------
+const bankLineText = document.getElementById('bank-line-text');
+const pauseLineLabel = document.getElementById('pause-line-label');
+
+function applyBrandConfig() {
+  const collectible = RunnerBrand.collectibleLabel.toLowerCase();
+  const score = RunnerBrand.scoreLabel.toLowerCase();
+  if (bankLineText) {
+    bankLineText.textContent = collectible + ' × distance ' + RunnerBrand.multiplierLabel + ' = ' + score;
+  }
+  if (pauseLineLabel) pauseLineLabel.textContent = RunnerBrand.scoreLabel;
+  // In-game 3D coin mesh (Mat.gold, assets.js) follows the same color as the
+  // HTML HUD dot unless a reskin's Palette.gold was already tuned to match —
+  // this just makes sure a brand-set color actually reaches the 3D mesh too.
+  document.documentElement.style.setProperty(
+    '--rd-collectible-color', '#' + RunnerBrand.collectibleColor.toString(16).padStart(6, '0')
+  );
+  if (typeof Mat !== 'undefined' && Mat.gold) Mat.gold.color.setHex(RunnerBrand.collectibleColor);
+  hudHigh.textContent = RunnerBrand.bestLabel + ': ' + Save.high;
+}
+applyBrandConfig();
 
 // The very first start requires a name (folded into the existing start
 // screen rather than a separate gate — see the PLAYER IDENTITY block up
@@ -980,7 +1005,7 @@ function pauseGame() {
   if (Game.state !== 'playing') return;
   Game.state = 'paused';
   pauseScoreEl.textContent = Math.floor(Game.score);
-  pauseCoinsEl.textContent = Game.coins + ' coins × ' + Game.multiplier;
+  pauseCoinsEl.textContent = Game.coins + ' ' + RunnerBrand.collectibleLabel.toLowerCase() + ' × ' + Game.multiplier;
   pauseScreen.classList.remove('hidden');
 }
 
@@ -1037,8 +1062,9 @@ function endGame() {
 
   goScore.textContent = finalScore;
   // show the sum, so the coins x multiplier rule is obvious
-  goCoins.innerHTML = Game.coins + ' coins &nbsp;&times;&nbsp; ' + Game.multiplier + ' multiplier';
-  goHigh.innerHTML = isNew ? '<span class="new-high">NEW BEST!</span>' : ('Best: ' + Save.high);
+  goCoins.innerHTML = Game.coins + ' ' + RunnerBrand.collectibleLabel.toLowerCase()
+    + ' &nbsp;&times;&nbsp; ' + Game.multiplier + ' ' + RunnerBrand.multiplierLabel;
+  goHigh.innerHTML = isNew ? '<span class="new-high">NEW BEST!</span>' : (RunnerBrand.bestLabel + ': ' + Save.high);
   gameoverScreen.classList.remove('hidden');
   hud.style.display = 'none';
   triggerShake(0.35, 0.4);
@@ -1049,7 +1075,7 @@ function updateHUD() {
   hudScore.textContent = Math.floor(Game.score);
   hudCoins.textContent = Game.coins;
   hudMult.textContent = 'x' + Game.multiplier;
-  hudHigh.textContent = 'Best: ' + Save.high;
+  hudHigh.textContent = RunnerBrand.bestLabel + ': ' + Save.high;
 }
 
 // ---------------------------------------------------------------------------

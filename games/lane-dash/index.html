@@ -18,6 +18,7 @@
     --rd-accent-4: #7c4dff;
     --rd-highlight: #ffd166;
     --rd-mult-color: #7CFF9E;
+    --rd-collectible-color: #ffcf33;
   }
 </style>
 </head>
@@ -51,7 +52,7 @@
   <div class="title-logo">LANE DASH</div>
   <div class="subtitle">Help Joshua keep running</div>
   <input type="text" id="username-input" class="name-input" placeholder="Enter your name..." maxlength="12">
-  <div class="bank-line"><span class="coin-dot"></span>coins &times; distance multiplier = score</div>
+  <div class="bank-line"><span class="coin-dot"></span><span id="bank-line-text">coins &times; distance multiplier = score</span></div>
   <button class="big-btn" id="start-btn">TAP TO RUN</button>
 </div>
 
@@ -66,7 +67,7 @@
 
 <div id="pause-screen" class="overlay hidden">
   <div class="title-logo" style="font-size:38px;">PAUSED</div>
-  <div class="pause-line">Score</div>
+  <div class="pause-line" id="pause-line-label">Score</div>
   <div class="go-score" id="pause-score">0</div>
   <div class="go-sub" id="pause-coins">0 coins &times; 1</div>
   <button class="big-btn" id="pause-resume-btn">CONTINUE</button>
@@ -125,6 +126,9 @@
 <!-- This pack's tuning knobs (speed, camera, track scale, obstacle mix, ...)
      — the thing a reskin actually edits to make Lane Dash feel different. -->
 <script src="theme.js"></script>
+<!-- Sponsor-controlled branding (labels/color) — see brand.js's header for
+     why this is a separate file from theme.js. -->
+<script src="brand.js"></script>
 <script src="../../engine/runner.js"></script>
 <script src="../../engine/touch-controls.js"></script>
 </body>

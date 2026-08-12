@@ -17,6 +17,10 @@
   --rd-accent-4: #7c4dff;
   --rd-highlight: #ffd166;
   --rd-mult-color: #7CFF9E;
+  /* HTML HUD/bank-line dot for the collectible. Kept independent of the
+     gold-* vars above (even though they match by default) because this one
+     is also driven live by RunnerBrand.collectibleColor — see brand.js. */
+  --rd-collectible-color: #ffcf33;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
@@ -38,7 +42,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--rd-bg); 
   font-size:clamp(13px,4vw,20px); font-weight:800; letter-spacing:.5px; padding:6px 14px; border-radius:30px;
   background:rgba(0,0,0,.28); color:var(--rd-mult-color);
 }
-#hud .coin-dot { width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff6c0, #ffcf33 55%, #cf9600); box-shadow:0 0 6px #ffdd55; }
+#hud .coin-dot { width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff6c0, var(--rd-collectible-color) 55%, #cf9600); box-shadow:0 0 6px var(--rd-collectible-color); }
 
 /* #hud itself is pointer-events:none (score/coins shouldn't eat swipes), so
    the pause button opts itself back in and is the one HUD element sized
@@ -92,7 +96,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--rd-bg); 
   font-size:16px; font-weight:700; margin-bottom:18px; opacity:.92;
 }
 .coin-dot { width:18px; height:18px; border-radius:50%; flex:none;
-  background:radial-gradient(circle at 35% 30%, #fff6c0, #ffcf33 55%, #cf9600); box-shadow:0 0 6px #ffdd55; }
+  background:radial-gradient(circle at 35% 30%, #fff6c0, var(--rd-collectible-color) 55%, #cf9600); box-shadow:0 0 6px var(--rd-collectible-color); }
 #flash-overlay {
   position:fixed; inset:0; background:#ff2b4d; opacity:0; pointer-events:none; z-index:8; transition:opacity .05s linear;
 }
