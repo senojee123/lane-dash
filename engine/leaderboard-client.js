@@ -1,8 +1,11 @@
 /* ============================================================================
-   SUPABASECLIENT.JS — the one place the game talks to the `scores` table.
-   Loaded after config.js (for window.GAME_CONFIG) and the Supabase UMD CDN
-   script (for window.supabase), and before game.js, which calls
-   submitScore() from its existing game-over handler.
+   LEADERBOARD-CLIENT.JS — ENGINE (generic, shared by every content pack).
+   The one place the game talks to its scores table. Loaded after config.js
+   (for window.GAME_CONFIG) and the Supabase UMD CDN script (for
+   window.supabase), and before game.js, which calls submitScore() from its
+   existing game-over handler. Table name comes from GAME_CONFIG.SCORES_TABLE
+   (default 'scores') — a new deployment points this at its own table/project
+   purely through config.js, no code change here.
 ============================================================================ */
 
 const SUPABASE_URL = (window.GAME_CONFIG && window.GAME_CONFIG.SUPABASE_URL) || '';

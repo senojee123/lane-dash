@@ -1,24 +1,34 @@
 /* ============================================================================
-   ASSET REGISTRY
+   ASSET REGISTRY — CONTENT (Lane Dash pack)
    ----------------------------------------------------------------------------
-   Central place that maps an asset KEY ("player", "car", "coin", ...) to:
-     - a build mode: "primitive" (procedural Three.js geometry, used today) or
-       "model" (a glTF/GLB file, for later)
-     - a `footprint` describing the collision box used by gameplay code
-       (width/height/depth + yBase, the height of the box's bottom above ground)
-     - for primitives: a `build()` factory that returns a THREE.Group
-     - for models: a `path` to the .glb/.gltf file + a `scale`
+   This file is what makes a reskin a *reskin*: the palette, shared
+   geometries/materials, every procedural primitive builder, and the
+   AssetRegistry entries that key them (footprints included). The generic
+   machinery that turns these entries into spawnable/poolable meshes —
+   AssetRegistry.create(), MeshPool, ModelCache — lives in
+   engine/asset-registry.js and is loaded right after this file (it attaches
+   .create onto the AssetRegistry object this file declares, and its
+   fallback-box builder reads this file's Palette/Geo — see that file's
+   header for the exact contract).
 
    HOW TO SWAP A PRIMITIVE FOR A REAL MODEL LATER
    ----------------------------------------------------------------------------
-   1. Drop your .glb file somewhere under this project (e.g. /models/car.glb).
+   1. Drop your .glb file somewhere under this pack's assets/ (e.g.
+      assets/models/car.glb).
    2. Change that entry's `type` to "model" and add a `path` (and optional
       `scale` / `rotationY` to align it to the same footprint/orientation the
       primitive used).
-   3. That's it — nothing in game.js references geometry directly, it always
-      calls `AssetRegistry.create(key)`, which transparently uses GLTFLoader
-      for "model" entries. Keep the footprint numbers matching the visual
-      size of the new model so collisions still feel fair.
+   3. That's it — nothing in engine/runner.js references geometry directly,
+      it always calls `AssetRegistry.create(key)`, which transparently uses
+      GLTFLoader for "model" entries. Keep the footprint numbers matching the
+      visual size of the new model so collisions still feel fair.
+
+   HOW TO BUILD A NEW RESKIN
+   ----------------------------------------------------------------------------
+   Copy this whole games/lane-dash/ folder, replace assets/ and the builders/
+   entries below (and cityModels.js / trafficVehicles.js / character.js's
+   manifests) with your new theme's content, then edit theme.js + config.js.
+   engine/ never needs to change.
 
    Example of a swapped-in entry:
      car: {
@@ -351,6 +361,9 @@ function buildLaneDash() {
 // ---------------------------------------------------------------------------
 // REGISTRY
 // ---------------------------------------------------------------------------
+// `AssetRegistry.create`, `MeshPool`, and `ModelCache` (the generic machinery
+// that turns these entries into spawnable/poolable meshes) are attached by
+// engine/asset-registry.js, loaded right after this file — see its header.
 const AssetRegistry = {
   player: {
     type: 'primitive',
@@ -402,98 +415,5 @@ const AssetRegistry = {
     type: 'primitive',
     build: buildLaneDash,
     footprint: { width: 0.14, height: 0.015, depth: 1.6, yBase: 0 },
-  },
-};
-
-// ---------------------------------------------------------------------------
-// MODEL CACHE — populated by cityModels.js once a GLB has finished loading
-// (or has permanently failed). AssetRegistry.create() below is cache-first:
-// it never loads anything itself, it only clones what's already cached, so
-// spawning a "model" asset is as cheap as spawning a primitive.
-//   ModelCache[key] = { template: THREE.Group } on success
-//   ModelCache[key] = { failed: true } on permanent failure
-// A key missing from ModelCache simply means "still loading" — create()
-// falls back to a same-footprint placeholder box in the meantime; once the
-// load resolves, the NEXT spawn of that key (e.g. the next recycled
-// segment) will pick up the real model automatically.
-// ---------------------------------------------------------------------------
-const ModelCache = {};
-
-function buildFallbackBox(key, fp) {
-  const group = new THREE.Group();
-  const mat = new THREE.MeshToonMaterial({ color: randChoice(Palette.buildings) });
-  const mesh = new THREE.Mesh(Geo.box, mat);
-  mesh.scale.set(fp.width, fp.height, fp.depth);
-  mesh.position.y = fp.height / 2 + (fp.yBase || 0);
-  group.add(mesh);
-  group.userData.isFallback = true;
-  return group;
-}
-
-// Clones a cached model template with INDEPENDENT materials per instance
-// (Object3D.clone() shares material references by default), so a color
-// variant applied to one spawned instance never bleeds into any other.
-function cloneModelInstance(template) {
-  const instance = template.clone(true);
-  instance.traverse((node) => {
-    if (node.isMesh && node.material) {
-      node.material = Array.isArray(node.material)
-        ? node.material.map((m) => m.clone())
-        : node.material.clone();
-    }
-  });
-  return instance;
-}
-
-/**
- * Creates a fresh instance of `key`. This is the ONLY place gameplay code
- * should go through to get a mesh — never build geometry inline elsewhere.
- * Handles both "primitive" (built procedurally) and "model" (glTF, loaded
- * and cached by cityModels.js) modes transparently.
- */
-AssetRegistry.create = function (key) {
-  const def = AssetRegistry[key];
-  if (!def) throw new Error('Unknown asset key: ' + key);
-
-  if (def.type === 'model') {
-    const cached = ModelCache[key];
-    const mesh = (cached && cached.template)
-      ? cloneModelInstance(cached.template)
-      : buildFallbackBox(key, def.footprint);
-    mesh.userData.assetKey = key;
-    return mesh;
-  }
-
-  const mesh = def.build();
-  mesh.userData.assetKey = key;
-  return mesh;
-};
-
-// ---------------------------------------------------------------------------
-// LIGHTWEIGHT OBJECT POOL — reuse Group instances instead of allocating new
-// geometry/materials every time a segment recycles.
-// ---------------------------------------------------------------------------
-const MeshPool = {
-  _free: {},
-  acquire(key) {
-    const bucket = this._free[key];
-    while (bucket && bucket.length) {
-      const m = bucket.pop();
-      // A placeholder pooled *before* its GLB finished loading must never be
-      // handed back out once the real model exists. Its geometry is baked to
-      // the guessed fallback footprint, so callers scaling it against the
-      // real measured footprint produce wildly wrong sizes (and buildings
-      // wide enough to spill across the road). Drop it and build fresh.
-      if (m.userData.isFallback && ModelCache[key] && ModelCache[key].template) continue;
-      m.visible = true;
-      return m;
-    }
-    return AssetRegistry.create(key);
-  },
-  release(mesh) {
-    const key = mesh.userData.assetKey;
-    mesh.visible = false;
-    if (mesh.parent) mesh.parent.remove(mesh);
-    (this._free[key] = this._free[key] || []).push(mesh);
   },
 };

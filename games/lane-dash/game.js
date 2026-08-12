@@ -1,7 +1,14 @@
 /* ============================================================================
    GAME.JS — scene setup, input, player state machine, track generation,
    collision, scoring/UI. Everything that needs a mesh pulls it from
-   AssetRegistry / MeshPool (see assets.js) — no inline geometry here.
+   AssetRegistry / MeshPool (assets.js + engine/asset-registry.js) — no
+   inline geometry here.
+
+   Lives in games/lane-dash/ (a content pack) rather than engine/ for now:
+   it still mixes Lane-Dash-specific tuning (TRACK_SCALE, CAMERA, speeds,
+   CITY_ROWS, obstacle-row weights, ...) in with genuinely generic runner
+   mechanics. Splitting those two apart into engine/runner.js + this pack's
+   theme.js is tracked as a follow-up, not done yet.
 ============================================================================ */
 
 // ---------------------------------------------------------------------------
@@ -385,7 +392,8 @@ window.addEventListener('keydown', (e) => {
   // launching the run before a name was even entered.
 });
 
-// Touch/swipe input lives in touchControls.js (loaded after this file), which
+// Touch/swipe input lives in engine/touch-controls.js (loaded after this
+// file), which
 // calls tryLaneChange/tryJump/trySlide directly — the same functions the
 // keydown handler above uses — so keyboard and touch stay two front-ends
 // over one action layer, never two parallel gameplay implementations.
@@ -996,7 +1004,7 @@ document.getElementById('pause-end-btn').addEventListener('click', () => {
 
 // On-screen pause button — the only way to pause on a touch device, since
 // the P key obviously isn't there. Lives in the HUD corner, out of the way
-// of the swipe gestures touchControls.js reads off the canvas.
+// of the swipe gestures engine/touch-controls.js reads off the canvas.
 document.getElementById('hud-pause-btn').addEventListener('click', togglePause);
 
 function startGame() {
@@ -1020,7 +1028,7 @@ function endGame() {
   if (isNew) Save.high = finalScore;
   Save.persist();
 
-  // Fire-and-forget — submitScore (supabaseClient.js) is async and never
+  // Fire-and-forget — submitScore (engine/leaderboard-client.js) is async and never
   // throws back into this function, so the game-over screen below renders
   // immediately regardless of how long (or whether) the network call takes.
   submitScore(playerCurrentName, finalScore);
