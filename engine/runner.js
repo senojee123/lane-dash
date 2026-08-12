@@ -1451,6 +1451,7 @@ function tick() {
   updateParticles(dt);
   if (Game.state !== 'playing') updateCamera(dt); else updateCamera(dt);
   renderer.render(scene, camera);
+  DevFPS.tick(dt); // no-op unless ?debug or ?fps is in the URL — see engine/dev-fps.js
 }
 
 initTrack();
