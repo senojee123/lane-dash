@@ -26,45 +26,22 @@ let isGameStarted = false;
 // ---------------------------------------------------------------------------
 // CONSTANTS
 // ---------------------------------------------------------------------------
-// Uniform scale for everything the player interacts with — road, lanes,
-// character, obstacles, coins. Buildings deliberately stay unscaled, so
-// raising this genuinely widens the road and enlarges the runner RELATIVE
-// to the city rather than just zooming the whole scene.
-const TRACK_SCALE = 1.25;
+// Every base tunable below lives in theme.js (RunnerTheme) — this section
+// only derives the values gameplay code actually needs from it. See
+// theme.js for what each knob means and why it's set the way it is; this
+// file is where reskinning stops being about numbers and starts being
+// about mechanics.
+const TRACK_SCALE = RunnerTheme.TRACK_SCALE;
 
-const LANES = [-2.2, 0, 2.2].map((x) => x * TRACK_SCALE);
-const ROAD_WIDTH = 8 * TRACK_SCALE;
-const SEGMENT_LENGTH = 30;
-const SEGMENTS_AHEAD = 11; // how many segments exist ahead of the player at once
+const LANES = RunnerTheme.LANE_OFFSETS.map((x) => x * TRACK_SCALE);
+const ROAD_WIDTH = RunnerTheme.ROAD_WIDTH * TRACK_SCALE;
+const SEGMENT_LENGTH = RunnerTheme.SEGMENT_LENGTH;
+const SEGMENTS_AHEAD = RunnerTheme.SEGMENTS_AHEAD; // how many segments exist ahead of the player at once
 // A segment's contents span [origin - SEGMENT_LENGTH, origin], so the origin
 // must travel a full segment length PAST the camera before the segment is
 // safe to recycle — otherwise its far end is still on screen when it's
 // reused, which reads as scenery popping out of existence mid-view.
-// ---- chase camera framing ------------------------------------------------
-// Every number that shapes the shot lives here, in world units / degrees, so
-// the framing can be retuned without reading any of the rig logic below.
-// The rig is a parent Group that rides the player's z (and, subtly, x); the
-// camera is its child at a FIXED local height, back-offset and downward tilt,
-// so a jump or roll never moves the shot.
-const CAMERA = {
-  height: 6.5,        // above the road surface
-  distance: 9.0,      // behind the runner
-  tiltDeg: -16.1,     // downward pitch. Chosen with `fov` so the character's
-                      // mid-body lands ~45% of the way down the lower half of
-                      // frame, and the horizon stays inside the top of frame.
-  fov: 60,            // vertical FOV: all three lanes clearly separated at the
-                      // runner, converging naturally toward the vanishing point
-  referenceAspect: 16 / 9, // the aspect ratio this whole rig was tuned against
-  maxNarrowZoom: 1.9,      // cap on how far the narrow-screen dolly-back below can push
-  lateralFollow: 0.35, // fraction of the runner's x the rig drifts across
-  lateralLag: 5,       // how fast (per second) it catches up — deliberately soft
-  // A touch of pull-back and lift at speed, so fast running reads as fast.
-  // Heavily smoothed and tiny; this is framing, not shake.
-  speedPullback: 0.6,
-  speedRise: 0.25,
-  speedFovGain: 8,
-  speedSettle: 2,      // per-second smoothing on the three values above
-};
+const CAMERA = RunnerTheme.CAMERA;
 // On a narrow/portrait screen, a fixed FOV keeps the same angular view but the
 // aspect ratio crops it down to a much narrower horizontal slice — the road
 // reads as "zoomed in", which is exactly what pushes mobile players to
@@ -79,35 +56,28 @@ function cameraNarrowZoom(aspect) {
 }
 const RECYCLE_Z = SEGMENT_LENGTH + CAMERA.distance * CAMERA.maxNarrowZoom + 6;
 
-// Scaling gravity and jump speed together keeps JUMP_AIRTIME identical while
-// making the arc TRACK_SCALE times taller — so it still clears the (now
-// taller) barriers and every obstacle-spacing guarantee below still holds.
-const GRAVITY = -32 * TRACK_SCALE;
-// Apex = JUMP_SPEED^2 / (2*GRAVITY) = 2.33 units (pre-scale). Kept as low as
-// the obstacle set allows — a floatier arc reads as a double jump. It must
-// still clear the 1.8 tops of `barrier_low` and `barrier_high`, while staying
-// under the 3.6 of `barrier_gap` and the 3.6 collision tops of the vehicles,
-// all of which are impassable by jumping.
-const JUMP_SPEED = 12.2 * TRACK_SCALE;
-const SLIDE_DURATION = 1.0;  // a ground slide always lasts a full second
-const ROLL_DURATION = 0.55;  // shorter duck you recover into after an air dive
-// Downward kick applied when ducking mid-air — fast enough to read as a
-// "bullet drop" rather than just falling early.
-const DIVE_SPEED = -32 * TRACK_SCALE;
-const LANE_LERP_SPEED = 12;
-// Speeds scale with the track so the run still covers the same number of
-// lane-widths per second — the feel is unchanged, only the scale is.
-const BASE_SPEED = 11 * TRACK_SCALE;
-const MAX_SPEED = 26 * TRACK_SCALE;
-const SPEED_RAMP_PER_UNIT = 0.0035; // speed gained per unit distance travelled
-const DIFFICULTY_DISTANCE = 1600 * TRACK_SCALE; // reach full difficulty sooner
+// Scaling gravity and jump speed together (both by TRACK_SCALE) keeps
+// JUMP_AIRTIME identical while making the arc TRACK_SCALE times taller — so
+// it still clears the (now taller) barriers and every obstacle-spacing
+// guarantee below still holds. See theme.js for the pre-scale values and why
+// they're set where they are.
+const GRAVITY = RunnerTheme.GRAVITY * TRACK_SCALE;
+const JUMP_SPEED = RunnerTheme.JUMP_SPEED * TRACK_SCALE;
+const SLIDE_DURATION = RunnerTheme.SLIDE_DURATION;
+const ROLL_DURATION = RunnerTheme.ROLL_DURATION;
+const DIVE_SPEED = RunnerTheme.DIVE_SPEED * TRACK_SCALE;
+const LANE_LERP_SPEED = RunnerTheme.LANE_LERP_SPEED;
+const BASE_SPEED = RunnerTheme.BASE_SPEED * TRACK_SCALE;
+const MAX_SPEED = RunnerTheme.MAX_SPEED * TRACK_SCALE;
+const SPEED_RAMP_PER_UNIT = RunnerTheme.SPEED_RAMP_PER_UNIT;
+const DIFFICULTY_DISTANCE = RunnerTheme.DIFFICULTY_DISTANCE * TRACK_SCALE;
 
 // ---- scoring -------------------------------------------------------------
 // Distance does NOT score directly. It raises a multiplier, one level every
 // MULT_DISTANCE travelled, and the final score is coins x multiplier — so a
 // long run is only worth something if you actually picked coins up along it.
-const MULT_DISTANCE = 150 * TRACK_SCALE;
-const MULT_MAX = 25;
+const MULT_DISTANCE = RunnerTheme.MULT_DISTANCE * TRACK_SCALE;
+const MULT_MAX = RunnerTheme.MULT_MAX;
 
 // Total airtime of a jump — obstacle spacing uses this so the player is
 // always back on the ground before the next row arrives.
@@ -124,18 +94,14 @@ const JUMP_AIRTIME = (2 * JUMP_SPEED) / -GRAVITY; // ~0.72s
 // the time to close 99% of the remaining distance; LANE_SWITCH_REACTION_TIME
 // on top of that is the budget for the player to actually notice the row and
 // press the key(s) at all, which the lerp settling time alone doesn't cover.
-const LANE_SWITCH_REACTION_TIME = 0.25;
+const LANE_SWITCH_REACTION_TIME = RunnerTheme.LANE_SWITCH_REACTION_TIME;
 const LANE_SWITCH_MIN_SECONDS = Math.log(100) / LANE_LERP_SPEED + LANE_SWITCH_REACTION_TIME; // ~0.63s
 
 // ---- city wall layout ----------------------------------------------------
 // Three contiguous rows of buildings per side. Each row's inner face starts
 // at `setback` and no building may exceed `maxWidth`, so rows can never
 // overlap each other or reach the road (road half-width is ROAD_WIDTH / 2).
-const CITY_ROWS = [
-  { setback: 6.4, maxWidth: 9, height: [7, 16], detail: 'full' },
-  { setback: 15.5, maxWidth: 11, height: [10, 24], detail: 'low' },
-  { setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low' },
-];
+const CITY_ROWS = RunnerTheme.CITY_ROWS;
 
 // ---------------------------------------------------------------------------
 // RENDERER / SCENE / CAMERA
@@ -446,7 +412,7 @@ function addObstacle(seg, key, lane, localZ, footprintOverride) {
 // Small buffer kept between two vehicles' visual edges in the same row, so
 // adjacent ones read as clearly distinct rather than touching bumper-to-
 // bumper even at the moment they'd otherwise just barely clear each other.
-const PILEUP_VISUAL_GAP = 0.15;
+const PILEUP_VISUAL_GAP = RunnerTheme.PILEUP_VISUAL_GAP;
 
 // Vehicles sit at FIXED lane-center X positions (LANES[lane]) as far as
 // collision is concerned — checkCollisions reads o.lane, never mesh.position.x
@@ -535,8 +501,8 @@ function spawnCityRow(seg, side, row) {
 // The two divider lines sit exactly on the midpoints between adjacent lane
 // centres, so they visually separate lane 0|1 and 1|2 regardless of TRACK_SCALE.
 const LANE_DIVIDER_X = [(LANES[0] + LANES[1]) / 2, (LANES[1] + LANES[2]) / 2];
-const LANE_DASH_LENGTH = 1.6;
-const LANE_DASH_GAP = 1.6;
+const LANE_DASH_LENGTH = RunnerTheme.LANE_DASH_LENGTH;
+const LANE_DASH_GAP = RunnerTheme.LANE_DASH_GAP;
 const LANE_DASH_PERIOD = LANE_DASH_LENGTH + LANE_DASH_GAP;
 
 function spawnLaneLines(seg) {
@@ -574,8 +540,8 @@ function spawnCoinLine(seg, lane, startLocalZ, count, height) {
 // a rhythm instead of unbroken pressure. Kept deliberately SHORT relative to
 // the interval — a breather is a couple of seconds of open road with a coin
 // trail, not a stretch of nothing. Scenery is never paused (see below).
-const REST_INTERVAL = 800 * TRACK_SCALE;
-const REST_LENGTH = 80 * TRACK_SCALE;
+const REST_INTERVAL = RunnerTheme.REST_INTERVAL * TRACK_SCALE;
+const REST_LENGTH = RunnerTheme.REST_LENGTH * TRACK_SCALE;
 
 function isRestStretch(layoutDistance) {
   // no breather before the first interval — the run opens with real obstacles
@@ -615,17 +581,12 @@ function populateSegment(seg, startGapZ) {
     }
 
     const roll = Math.random();
-    // Rebalanced so late-run (difficulty -> 1) leans into MIXED rows rather
-    // than pure vehicle chains — a long run was spending most of its rows on
-    // back-to-back vehicle pileups (see pileupChain below), crowding out
-    // barriers almost entirely right when the run should be showing its
-    // fullest variety. Vehicle/barrier chances now barely grow with
-    // difficulty; mixed absorbs almost all of the extra pressure instead, so
-    // late-game stays dense but keeps reading as "vehicles AND barriers"
-    // rather than "vehicles, occasionally."
-    let vehicleChance = 0.40 + difficulty * 0.08;
-    let barrierChance = 0.34 + difficulty * 0.06;
-    let mixedChance = 0.18 + difficulty * 0.22;
+    // Base/slope for each band lives in theme.js (RunnerTheme.ROW_MIX) — see
+    // its comment for why they're weighted the way they are.
+    const mix = RunnerTheme.ROW_MIX;
+    let vehicleChance = mix.vehicleBase + difficulty * mix.vehicleSlope;
+    let barrierChance = mix.barrierBase + difficulty * mix.barrierSlope;
+    let mixedChance = mix.mixedBase + difficulty * mix.mixedSlope;
     // These three are compared against a single `roll` as stacked bands
     // (below), so if their sum exceeds 1 the last band in the chain gets
     // silently clipped down to whatever sliver is left under 1.0 — which is
