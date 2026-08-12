@@ -499,8 +499,23 @@ function spawnCityRow(seg, side, row) {
 
     // only 0 / 180 degree turns, so depth stays aligned to z and the row stays tight
     const rotY = Math.random() < 0.5 ? 0 : Math.PI;
-    addScenery(seg, key, side * (row.setback + width / 2), z - depth / 2, s, rotY,
+    const buildingX = side * (row.setback + width / 2);
+    const buildingZ = z - depth / 2;
+    addScenery(seg, key, buildingX, buildingZ, s, rotY,
                randChoice(CityModels.VARIANT_KEYS), squash);
+
+    // Rooftop billboard, occasional — row.rooftopBillboardChance is only set
+    // on the row(s) short enough to still read from the chase camera (see
+    // theme.js's CITY_ROWS comment). Deliberately NOT tied to the building's
+    // own random rotY (that's just cosmetic building-facing variety) — the
+    // billboard gets its own road-facing rotation, same convention as every
+    // other billboard/banner in the game: oriented across the road toward
+    // where the player runs, not wherever the building happened to face.
+    if (row.rooftopBillboardChance && Math.random() < row.rooftopBillboardChance) {
+      const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
+      addBillboard(seg, buildingX, buildingZ, side < 0 ? 0 : Math.PI, creative, fp.height * s);
+    }
+
     z -= depth;
   }
 }
@@ -528,9 +543,9 @@ const HAS_BILLBOARD_CREATIVES = typeof RunnerBillboards !== 'undefined' && Runne
 // Not a real feature toggle; remove once the investigation is done.
 const BILLBOARDS_DISABLED = new URLSearchParams(window.location.search).has('nobillboards');
 
-function addBillboard(seg, x, localZ, rotY, creative) {
+function addBillboard(seg, x, localZ, rotY, creative, y) {
   const mesh = MeshPool.acquire(SCENERY_KEYS.billboard);
-  mesh.position.set(x, 0, localZ);
+  mesh.position.set(x, y || 0, localZ);
   mesh.scale.setScalar(TRACK_SCALE);
   mesh.rotation.y = rotY;
   // Reassigned on every placement (pooled instances keep whatever texture

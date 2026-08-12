@@ -210,15 +210,23 @@ function loadOneModel(loader, key, entry) {
  * back to placeholder boxes for anything still loading, and already-spawned
  * scenery gets swapped for the real model the next time it's recycled.
  */
+// PROP_KEYS (awnings/overhangs/parasols) are registered into AssetRegistry
+// above like everything else, but nothing in engine/runner.js's scenery
+// generator actually spawns a 'prop' tier key today — they were dead weight
+// on the loading screen (6 GLB downloads + parses for models nothing ever
+// placed). Registration stays (cheap, and ready for whenever prop placement
+// gets built), only the network load is skipped.
+const LOADED_MODEL_KEYS = Object.keys(CITY_MODEL_MANIFEST).filter((k) => CITY_MODEL_MANIFEST[k].tier !== 'prop');
+
 CityModels.init = function () {
   if (CityModels._loadPromise) return CityModels._loadPromise;
 
-  if (window.AssetLoader) AssetLoader.add(Object.keys(CITY_MODEL_MANIFEST).length + 3);
+  if (window.AssetLoader) AssetLoader.add(LOADED_MODEL_KEYS.length + 3);
 
   const gltfLoader = new THREE.GLTFLoader();
   const textureLoader = new THREE.TextureLoader();
 
-  const modelPromises = Object.keys(CITY_MODEL_MANIFEST).map((key) =>
+  const modelPromises = LOADED_MODEL_KEYS.map((key) =>
     loadOneModel(gltfLoader, key, CITY_MODEL_MANIFEST[key])
   );
 
@@ -230,7 +238,8 @@ CityModels.init = function () {
 
   CityModels._loadPromise = Promise.all([...modelPromises, ...texturePromises]).then(() => {
     CityModels.ready = true;
-    console.log('[CityModels] all %d models + 3 color atlases attempted.', Object.keys(CITY_MODEL_MANIFEST).length);
+    console.log('[CityModels] %d models (of %d registered; prop-tier skipped) + 3 color atlases attempted.',
+                LOADED_MODEL_KEYS.length, Object.keys(CITY_MODEL_MANIFEST).length);
   });
 
   return CityModels._loadPromise;

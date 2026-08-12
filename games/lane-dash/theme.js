@@ -23,7 +23,15 @@ const RunnerTheme = {
   // Pre-scale road width.
   ROAD_WIDTH: 8,
   SEGMENT_LENGTH: 30,
-  SEGMENTS_AHEAD: 11, // how many segments exist ahead of the player at once
+  // How many segments exist ahead of the player at once. 7 x 30 = 210 world
+  // units of loaded track — comfortably past the camera's 130-unit far
+  // plane (runner.js frustum-culls anything beyond that already, so this
+  // mainly cuts per-frame CPU overhead — matrix updates and culling tests
+  // Three.js still runs on every loaded object even when it never actually
+  // gets drawn — not the GPU draw-call cost of what's actually visible,
+  // which this alone won't move much). Was 11 (330 units, ~2.5x the far
+  // plane) before this pass.
+  SEGMENTS_AHEAD: 7,
 
   // ---- chase camera framing ------------------------------------------------
   // Every number that shapes the shot lives here, in world units / degrees,
@@ -96,8 +104,16 @@ const RunnerTheme = {
   // Each row's inner face starts at `setback` and no building may exceed
   // `maxWidth`, so rows can never overlap each other or reach the road
   // (road half-width is ROAD_WIDTH / 2).
+  //
+  // rooftopBillboardChance (optional, per-row): chance any given building in
+  // that row also gets a billboard mounted on its roof — see spawnCityRow()
+  // in engine/runner.js. Only set on row 0: it's the row nearest the road
+  // (most visible) AND the shortest (height 7-16, vs 10-24/14-34 further
+  // back) — the chase camera sits at height ~6.5 with a mild downward tilt,
+  // so a rooftop sign only reads clearly on buildings in roughly that same
+  // height range; anything much taller and it'd sit above the frame.
   CITY_ROWS: [
-    { setback: 6.4, maxWidth: 9, height: [7, 16], detail: 'full' },
+    { setback: 6.4, maxWidth: 9, height: [7, 16], detail: 'full', rooftopBillboardChance: 0.12 },
     { setback: 15.5, maxWidth: 11, height: [10, 24], detail: 'low' },
     { setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low' },
   ],
