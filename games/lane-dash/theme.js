@@ -1,13 +1,13 @@
 /* ============================================================================
    THEME.JS — this reskin's tuning knobs.
    ----------------------------------------------------------------------------
-   Every number here is read by game.js (see its CONSTANTS section) instead
+   Every number here is read by engine/runner.js (see its CONSTANTS section) instead
    of being hardcoded — this is the one file a new reskin edits to change how
    Lane Dash's fixed mechanics (3 lanes, jump/slide/roll, coins x multiplier)
-   *feel*, without touching game.js itself. Branding/copy/colors are a
+   *feel*, without touching engine/runner.js itself. Branding/copy/colors are a
    separate concern, edited directly in this pack's own index.html.
 
-   Values below are exactly what game.js hardcoded before this file existed —
+   Values below are exactly what engine/runner.js hardcoded before this file existed —
    moving them here changes nothing about how the game plays today.
 ============================================================================ */
 const RunnerTheme = {
@@ -17,7 +17,7 @@ const RunnerTheme = {
   // to the city rather than just zooming the whole scene.
   TRACK_SCALE: 1.25,
 
-  // Pre-scale lane centers (x, world units) — game.js multiplies these by
+  // Pre-scale lane centers (x, world units) — engine/runner.js multiplies these by
   // TRACK_SCALE. Must stay a 3-element array; lane math elsewhere assumes 3.
   LANE_OFFSETS: [-2.2, 0, 2.2],
   // Pre-scale road width.
@@ -52,7 +52,7 @@ const RunnerTheme = {
   },
 
   // Pre-scale gravity. Scaling gravity and jump speed together (both by
-  // TRACK_SCALE, done in game.js) keeps JUMP_AIRTIME identical while making
+  // TRACK_SCALE, done in engine/runner.js) keeps JUMP_AIRTIME identical while making
   // the arc TRACK_SCALE times taller — so it still clears the (now taller)
   // barriers and every obstacle-spacing guarantee still holds.
   GRAVITY: -32,
@@ -87,7 +87,7 @@ const RunnerTheme = {
   MULT_MAX: 25,
 
   // Reaction-time budget added on top of the lane-lerp settling time — see
-  // LANE_SWITCH_MIN_SECONDS in game.js for the full derivation.
+  // LANE_SWITCH_MIN_SECONDS in engine/runner.js for the full derivation.
   LANE_SWITCH_REACTION_TIME: 0.25,
 
   // ---- city wall layout ----------------------------------------------------
@@ -101,6 +101,15 @@ const RunnerTheme = {
     { setback: 15.5, maxWidth: 11, height: [10, 24], detail: 'low' },
     { setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low' },
   ],
+
+  // AssetRegistry keys for the two pieces of scenery the track generator
+  // places itself (as opposed to CityModels' building manifest). A reskin
+  // that renames/replaces these primitives in its own assets.js only needs
+  // to update the keys here — engine/runner.js never hardcodes them.
+  SCENERY_KEYS: {
+    streetlight: 'streetlight',
+    laneDash: 'lane_dash',
+  },
 
   // ---- breather stretches ---------------------------------------------------
   // Every REST_INTERVAL of track, obstacles stop for REST_LENGTH so the run
@@ -119,6 +128,20 @@ const RunnerTheme = {
   LANE_DASH_LENGTH: 1.6,
   LANE_DASH_GAP: 1.6,
 
+  // ---- obstacle classes -----------------------------------------------------
+  // Every barrier AssetRegistry key the track generator can place, grouped
+  // by how the player has to get past it: JUMP over jumpOnly, ROLL under
+  // rollOnly, EITHER works for `either`. engine/runner.js picks a class by
+  // weight, then a random key from within that class (each class holds one
+  // key today, but a reskin can list several — a wider bench of jump-only
+  // obstacles, say — without engine/runner.js changing at all). Weights are
+  // relative, not required to sum to 1.
+  OBSTACLE_KEYS: {
+    jumpOnly: { keys: ['barrier_low'], weight: 0.38 },   // solid to the ground — must jump
+    either: { keys: ['barrier_high'], weight: 0.34 },    // beam — jump OR roll
+    rollOnly: { keys: ['barrier_gap'], weight: 0.28 },   // wall with a gap underneath — must roll
+  },
+
   // ---- obstacle row mix -----------------------------------------------------
   // Chance bands for what a given row of the track becomes, each
   // `base + difficulty * slope` (difficulty ramps 0..1 over
@@ -130,9 +153,13 @@ const RunnerTheme = {
   // mixed absorbs almost all of the extra pressure instead, so late-game
   // stays dense but keeps reading as "vehicles AND barriers" rather than
   // "vehicles, occasionally." If the three bands sum past 0.95 at full
-  // difficulty, game.js normalizes them proportionally (always leaving at
-  // least 5% of rolls for a plain clear/coin row) — so these can be tuned
-  // independently without needing to keep the sum in mind.
+  // difficulty, engine/runner.js normalizes them proportionally (always
+  // leaving at least 5% of rolls for a plain clear/coin row) — so these can
+  // be tuned independently without needing to keep the sum in mind.
+  //
+  // vehicleChance requires a TrafficVehicles module (TrafficVehicles.pick/
+  // .KEYS) to be loaded; if this pack doesn't define one, engine/runner.js
+  // forces vehicleChance to 0 regardless of what's set here.
   ROW_MIX: {
     vehicleBase: 0.40, vehicleSlope: 0.08,
     barrierBase: 0.34, barrierSlope: 0.06,

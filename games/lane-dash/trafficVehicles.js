@@ -227,7 +227,7 @@ function loadOneVehicle(loader, key, entry) {
  * pileup's open lane, while each vehicle keeps its own raw size relative to
  * the others (a firetruck stays visibly bigger than a hatchback).
  * `fit * CAR_VISUAL_SCALE` is a SEPARATE number, stored as
- * AssetRegistry[key].meshScaleMultiplier — read only by addObstacle (game.js)
+ * AssetRegistry[key].meshScaleMultiplier — read only by addObstacle (engine/runner.js)
  * when it sets the SPAWNED mesh's scale, never by anything in this file. The
  * footprint below is computed from `fit` alone, on purpose: that split is
  * what lets a car be told to look bigger without the hitbox ever hearing
@@ -253,7 +253,7 @@ function fitLoadedVehicles() {
       width: s.x * fit * HITBOX_SCALE_FACTOR,
       depth: s.z * fit * HITBOX_SCALE_FACTOR,
       // measured height/width/depth kept for reference (visualWidth is also
-      // read by the pileup lateral-spacing logic in game.js, since THAT is a
+      // read by the pileup lateral-spacing logic in engine/runner.js, since THAT is a
       // purely visual placement concern, deliberately separate from the
       // collision footprint above) — never fed into collision math.
       visualHeight: s.y * fit * CAR_VISUAL_SCALE,

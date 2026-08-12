@@ -1,14 +1,20 @@
 /* ============================================================================
-   GAME.JS — scene setup, input, player state machine, track generation,
-   collision, scoring/UI. Everything that needs a mesh pulls it from
-   AssetRegistry / MeshPool (assets.js + engine/asset-registry.js) — no
-   inline geometry here.
+   RUNNER.JS — ENGINE (generic, shared by every content pack).
+   Scene setup, input, player state machine, track generation, collision,
+   scoring/UI, the game state machine, and the main loop — everything that
+   defines Lane Dash's fixed genre mechanics (3 lanes, jump/slide/roll,
+   coins x multiplier scoring). Nothing in here is specific to one reskin:
+   every mesh comes from AssetRegistry/MeshPool (assets.js +
+   engine/asset-registry.js, never inline geometry), every tunable number
+   comes from RunnerTheme (this pack's theme.js), and the two places genre
+   mechanics touch content identity — which AssetRegistry keys are
+   jump-only/either/roll-only, and whether a vehicle module exists at all —
+   go through RunnerTheme.OBSTACLE_KEYS and the HAS_VEHICLES duck-type check
+   below rather than hardcoded key names.
 
-   Lives in games/lane-dash/ (a content pack) rather than engine/ for now:
-   it still mixes Lane-Dash-specific tuning (TRACK_SCALE, CAMERA, speeds,
-   CITY_ROWS, obstacle-row weights, ...) in with genuinely generic runner
-   mechanics. Splitting those two apart into engine/runner.js + this pack's
-   theme.js is tracked as a follow-up, not done yet.
+   To build a new reskin: copy games/lane-dash/ as a template and replace its
+   assets/ + assets.js/cityModels.js/trafficVehicles.js/character.js/theme.js
+   — this file does not need to change. See engine/README.md.
 ============================================================================ */
 
 // ---------------------------------------------------------------------------
@@ -505,10 +511,12 @@ const LANE_DASH_LENGTH = RunnerTheme.LANE_DASH_LENGTH;
 const LANE_DASH_GAP = RunnerTheme.LANE_DASH_GAP;
 const LANE_DASH_PERIOD = LANE_DASH_LENGTH + LANE_DASH_GAP;
 
+const SCENERY_KEYS = RunnerTheme.SCENERY_KEYS;
+
 function spawnLaneLines(seg) {
   for (const x of LANE_DIVIDER_X) {
     for (let z = -LANE_DASH_PERIOD / 2; z > -SEGMENT_LENGTH; z -= LANE_DASH_PERIOD) {
-      addScenery(seg, 'lane_dash', x, z, 1);
+      addScenery(seg, SCENERY_KEYS.laneDash, x, z, 1);
     }
   }
 }
@@ -525,7 +533,7 @@ function spawnScenery(seg) {
     // The lamp arm extends along +X in the model's own space, so it has to be
     // turned to face the road centre: poles on the RIGHT (+x) need a 180deg
     // flip, poles on the LEFT (-x) need none.
-    addScenery(seg, 'streetlight', side * (ROAD_WIDTH / 2 + 0.7), z, TRACK_SCALE, side < 0 ? 0 : Math.PI);
+    addScenery(seg, SCENERY_KEYS.streetlight, side * (ROAD_WIDTH / 2 + 0.7), z, TRACK_SCALE, side < 0 ? 0 : Math.PI);
   }
 }
 
@@ -547,6 +555,41 @@ function isRestStretch(layoutDistance) {
   // no breather before the first interval — the run opens with real obstacles
   if (layoutDistance < REST_INTERVAL) return false;
   return (layoutDistance % REST_INTERVAL) < REST_LENGTH;
+}
+
+// ---------------------------------------------------------------------------
+// BARRIER SELECTION — content-agnostic. Picks a class (jump-only / either /
+// roll-only) by weight from RunnerTheme.OBSTACLE_KEYS, then a random key from
+// within that class, so this pack's actual key names never appear here.
+// Returns which of the two gameplay-relevant classes the pick belongs to
+// (each mutually exclusive: 'either' triggers neither) so callers don't need
+// to know or compare against literal key strings.
+// ---------------------------------------------------------------------------
+const OBSTACLE_KEYS = RunnerTheme.OBSTACLE_KEYS;
+const OBSTACLE_CLASS_NAMES = Object.keys(OBSTACLE_KEYS);
+
+// A content pack's vehicle module is optional — TrafficVehicles.pick()/.KEYS
+// is the same duck-typed contract trafficVehicles.js implements today; a
+// reskin can ship its own, or skip vehicles entirely and let vehicleChance
+// fall to 0 below rather than crash on a missing global.
+const HAS_VEHICLES = typeof TrafficVehicles !== 'undefined'
+  && Array.isArray(TrafficVehicles.KEYS) && TrafficVehicles.KEYS.length > 0;
+
+function pickBarrierKey() {
+  let total = 0;
+  for (const name of OBSTACLE_CLASS_NAMES) total += OBSTACLE_KEYS[name].weight;
+  let roll = Math.random() * total;
+  let cls = OBSTACLE_KEYS[OBSTACLE_CLASS_NAMES[OBSTACLE_CLASS_NAMES.length - 1]];
+  let clsName = OBSTACLE_CLASS_NAMES[OBSTACLE_CLASS_NAMES.length - 1];
+  for (const name of OBSTACLE_CLASS_NAMES) {
+    roll -= OBSTACLE_KEYS[name].weight;
+    if (roll <= 0) { cls = OBSTACLE_KEYS[name]; clsName = name; break; }
+  }
+  return {
+    key: randChoice(cls.keys),
+    forcesJump: clsName === 'jumpOnly',
+    forcesRoll: clsName === 'rollOnly',
+  };
 }
 
 // Fills one segment's obstacle/coin rows. `startGapZ` lets us skip
@@ -584,7 +627,7 @@ function populateSegment(seg, startGapZ) {
     // Base/slope for each band lives in theme.js (RunnerTheme.ROW_MIX) — see
     // its comment for why they're weighted the way they are.
     const mix = RunnerTheme.ROW_MIX;
-    let vehicleChance = mix.vehicleBase + difficulty * mix.vehicleSlope;
+    let vehicleChance = HAS_VEHICLES ? mix.vehicleBase + difficulty * mix.vehicleSlope : 0;
     let barrierChance = mix.barrierBase + difficulty * mix.barrierSlope;
     let mixedChance = mix.mixedBase + difficulty * mix.mixedSlope;
     // These three are compared against a single `roll` as stacked bands
@@ -644,14 +687,13 @@ function populateSegment(seg, startGapZ) {
       pileupChain--;
     } else if (roll < vehicleChance + barrierChance) {
       // ---- barrier row: independent per lane, always passable ----
-      // barrier_low  -> must jump      barrier_gap -> must roll
-      // barrier_high -> either one, so it never dictates the next row's spacing
+      // jump-only barriers must be jumped, roll-only must be rolled under;
+      // "either" (jump or roll) never dictates the next row's spacing.
       for (let lane = 0; lane < 3; lane++) {
         if (Math.random() < 0.20) continue;
-        const r = Math.random();
-        const key = r < 0.38 ? 'barrier_low' : (r < 0.72 ? 'barrier_high' : 'barrier_gap');
-        addObstacle(seg, key, lane, localZ);
-        if (key === 'barrier_low') {
+        const pick = pickBarrierKey();
+        addObstacle(seg, pick.key, lane, localZ);
+        if (pick.forcesJump) {
           forcedJump = true;
           if (Math.random() < 0.5) {
             // reward arc of coins above the hurdle for jumping it
@@ -660,7 +702,7 @@ function populateSegment(seg, startGapZ) {
             // otherwise a well-timed jump sails clean over the reward.
             spawnCoinLine(seg, lane, localZ + 0.6, 3, 2.9);
           }
-        } else if (key === 'barrier_gap') {
+        } else if (pick.forcesRoll) {
           forcedRoll = true;
         }
       }
@@ -675,17 +717,16 @@ function populateSegment(seg, startGapZ) {
       const mixedVehicles = [];
       for (let lane = 0; lane < 3; lane++) {
         if (lane === openLane) continue;
-        if (Math.random() < 0.5) {
+        if (HAS_VEHICLES && Math.random() < 0.5) {
           lastVehicleKey = TrafficVehicles.pick(lastVehicleKey);
           mixedVehicles.push(addObstacle(seg, lastVehicleKey, lane, localZ));
           rowDepth = Math.max(rowDepth, trackFootprint(lastVehicleKey).depth);
           requiresLaneSwitch = true;
         } else {
-          const r = Math.random();
-          const key = r < 0.38 ? 'barrier_low' : (r < 0.72 ? 'barrier_high' : 'barrier_gap');
-          addObstacle(seg, key, lane, localZ);
-          if (key === 'barrier_low') forcedJump = true;
-          else if (key === 'barrier_gap') forcedRoll = true;
+          const pick = pickBarrierKey();
+          addObstacle(seg, pick.key, lane, localZ);
+          if (pick.forcesJump) forcedJump = true;
+          else if (pick.forcesRoll) forcedRoll = true;
         }
       }
       spaceRowVehiclesVisually(mixedVehicles);
@@ -1354,7 +1395,7 @@ CityModels.init().then(() => {
 // the pop-in that used to happen after the start screen already showed can
 // never be seen. Each of these three calls returns the SAME cached promise
 // the module kicked off at file-load time; calling init() again here just
-// lets game.js hook onto it, it does not re-trigger any loading.
+// lets this file hook onto it, it does not re-trigger any loading.
 const loadingScreenEl = document.getElementById('loading-screen');
 const loadingBarFillEl = document.getElementById('loading-bar-fill');
 // The bar's CSS width transition (.15s) is still visually catching up to the

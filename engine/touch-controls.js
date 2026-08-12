@@ -3,17 +3,17 @@
 
    This file only detects gestures. It never touches player/game state
    directly — every gesture routes into tryLaneChange/tryJump/trySlide, the
-   exact same functions the keydown handler in game.js calls, so keyboard and
+   exact same functions the keydown handler in engine/runner.js calls, so keyboard and
    touch are two front-ends over one action layer rather than two parallel
-   gameplay implementations. Loaded after game.js so those globals (canvas,
+   gameplay implementations. Loaded after engine/runner.js so those globals (canvas,
    Game, tryLaneChange, tryJump, trySlide) already exist in this shared
    top-level script scope.
 
    Both input paths stay live at all times — nothing here disables the
-   keyboard, and nothing in game.js disables touch. A touchscreen laptop with
+   keyboard, and nothing in engine/runner.js disables touch. A touchscreen laptop with
    a keyboard attached, or a phone with a Bluetooth controller, both just work.
 
-   Orientation: the game's chase camera (see cameraNarrowZoom in game.js)
+   Orientation: the game's chase camera (see cameraNarrowZoom in engine/runner.js)
    dollies back automatically on narrow aspect ratios, so portrait is treated
    as the primary phone orientation, but nothing here assumes it — swipes are
    read the same way in landscape.
@@ -40,7 +40,7 @@
     // Only fight the browser's native scroll/pinch-zoom/pull-to-refresh while
     // a run is actually in progress. On the start/pause/game-over overlays we
     // deliberately leave default touch behaviour alone so their buttons (and
-    // the canvas's own tap-to-start listener in game.js) keep working as a
+    // the canvas's own tap-to-start listener in engine/runner.js) keep working as a
     // normal tap, synthetic click included.
     if (Game.state === 'playing') e.preventDefault();
   }

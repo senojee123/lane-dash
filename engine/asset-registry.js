@@ -12,7 +12,7 @@
    onto an `AssetRegistry` object that assets.js is the one declaring
    (`const AssetRegistry = {...}`). It must load BEFORE any module that
    calls AssetRegistry.create/MeshPool.acquire or writes into ModelCache
-   (cityModels.js, trafficVehicles.js, game.js).
+   (cityModels.js, trafficVehicles.js, engine/runner.js).
 
    One deliberate leak: buildFallbackBox() below (used when a "model" entry
    is still loading or failed) reaches into the content pack's `Palette` and

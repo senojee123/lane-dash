@@ -2,7 +2,7 @@
    LEADERBOARD-CLIENT.JS — ENGINE (generic, shared by every content pack).
    The one place the game talks to its scores table. Loaded after config.js
    (for window.GAME_CONFIG) and the Supabase UMD CDN script (for
-   window.supabase), and before game.js, which calls submitScore() from its
+   window.supabase), and before engine/runner.js, which calls submitScore() from its
    existing game-over handler. Table name comes from GAME_CONFIG.SCORES_TABLE
    (default 'scores') — a new deployment points this at its own table/project
    purely through config.js, no code change here.
@@ -21,7 +21,7 @@ const SCORES_TABLE = (window.GAME_CONFIG && window.GAME_CONFIG.SCORES_TABLE) || 
 // let/const/class — a second `let supabase` anywhere collides with it. That
 // collision is a parse-time SyntaxError, which kills the ENTIRE file it's in
 // before a single line of it runs (this bit the previous attempt at this
-// integration: naming the client `supabase` silently broke all of game.js,
+// integration: naming the client `supabase` silently broke all of runner.js,
 // not just the leaderboard call).
 let gameSupabaseClient = null;
 if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_PROJECT_URL_HERE') {

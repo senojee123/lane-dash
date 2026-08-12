@@ -1,0 +1,137 @@
+/* ============================================================================
+   RUNNER.CSS — ENGINE (generic, shared by every content pack).
+   Every rule below is structural (layout, sizing, animation) and reads its
+   colors from custom properties defined here in :root as Lane Dash's own
+   defaults. A reskin overrides a handful of these in its own index.html
+   (see that file's <style> block for the pattern) to rebrand without
+   touching this file — page background, the title/button gradient, and the
+   two accent colors used for "new high score" / the multiplier badge.
+   Everything else (overlay scrims, the coin icon, the hit-flash red, the
+   loading screen) is engine chrome, deliberately left fixed.
+============================================================================ */
+:root {
+  --rd-bg: #0a0a14;
+  --rd-gold-1: #ffe259;
+  --rd-gold-2: #ffa751;
+  --rd-accent-3: #ff5f8f;
+  --rd-accent-4: #7c4dff;
+  --rd-highlight: #ffd166;
+  --rd-mult-color: #7CFF9E;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+html, body { width:100%; height:100%; overflow:hidden; background:var(--rd-bg); font-family: 'Segoe UI', Verdana, sans-serif; }
+#game-canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+#hud {
+  position:fixed; top:0; left:0; width:100%; padding:16px 20px;
+  display:flex; justify-content:space-between; align-items:flex-start;
+  pointer-events:none; z-index:5; color:#fff; text-shadow:0 2px 6px rgba(0,0,0,.6);
+}
+/* clamp() instead of fixed px so the HUD scales down on narrow phone
+   screens rather than assuming a fixed desktop-sized viewport. */
+#hud .score-block { font-size:clamp(22px,7vw,34px); font-weight:800; letter-spacing:1px; }
+#hud .sub { font-size:clamp(11px,3vw,14px); font-weight:600; opacity:.85; margin-top:2px; }
+#hud .hud-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+#hud .coin-block { font-size:clamp(15px,4.5vw,22px); font-weight:700; display:flex; align-items:center; gap:8px; background:rgba(0,0,0,.28); padding:8px 14px; border-radius:30px; }
+#hud .mult-block {
+  font-size:clamp(13px,4vw,20px); font-weight:800; letter-spacing:.5px; padding:6px 14px; border-radius:30px;
+  background:rgba(0,0,0,.28); color:var(--rd-mult-color);
+}
+#hud .coin-dot { width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff6c0, #ffcf33 55%, #cf9600); box-shadow:0 0 6px #ffdd55; }
+
+/* #hud itself is pointer-events:none (score/coins shouldn't eat swipes), so
+   the pause button opts itself back in and is the one HUD element sized
+   for a fingertip — 44px is the standard minimum comfortable touch target. */
+#hud-pause-btn {
+  pointer-events:auto; width:44px; height:44px; min-width:44px; min-height:44px;
+  border-radius:50%; border:none; background:rgba(0,0,0,.32); color:#fff;
+  font-size:20px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; margin-bottom:4px; align-self:flex-end;
+}
+#hud-pause-btn:active { background:rgba(0,0,0,.5); }
+
+.overlay {
+  position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:linear-gradient(180deg, rgba(20,10,40,.55), rgba(5,5,15,.85));
+  color:#fff; text-align:center; z-index:10; padding:20px;
+}
+.overlay.hidden { display:none; }
+.title-logo {
+  font-size:clamp(38px,8vw,64px); font-weight:900; letter-spacing:2px;
+  background:linear-gradient(90deg, var(--rd-gold-1), var(--rd-gold-2), var(--rd-accent-3), var(--rd-accent-4));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  text-shadow:0 4px 18px rgba(0,0,0,.35); margin-bottom:6px;
+}
+.subtitle { font-size:15px; opacity:.85; margin-bottom:26px; }
+.name-input {
+  padding:14px 16px; font-size:18px; border-radius:10px; border:2px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.06); color:#fff; text-align:center; width:min(280px,80vw);
+  margin-bottom:22px; outline:none; font-family:inherit;
+}
+.name-input::placeholder { color:rgba(255,255,255,.4); }
+.name-input:focus { border-color:var(--rd-highlight); }
+.big-btn {
+  font-size:20px; font-weight:800; letter-spacing:.5px; color:#1a1a1a;
+  background:linear-gradient(90deg, var(--rd-gold-1), var(--rd-gold-2)); border:none; padding:16px 46px;
+  border-radius:50px; cursor:pointer; box-shadow:0 8px 20px rgba(255,150,60,.4);
+  transition:transform .12s ease;
+}
+.big-btn:active { transform:scale(.94); }
+.go-score { font-size:52px; font-weight:900; margin:6px 0 2px; }
+.go-sub { font-size:16px; opacity:.85; margin-bottom:4px; }
+.go-high { font-size:15px; color:var(--rd-highlight); font-weight:700; margin-bottom:22px; }
+.new-high { color:var(--rd-mult-color); font-weight:800; }
+
+.big-btn.secondary {
+  background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.28);
+  box-shadow:none; font-size:16px; padding:12px 34px; margin-top:12px;
+}
+.bank-line {
+  display:flex; align-items:center; gap:8px; justify-content:center;
+  font-size:16px; font-weight:700; margin-bottom:18px; opacity:.92;
+}
+.coin-dot { width:18px; height:18px; border-radius:50%; flex:none;
+  background:radial-gradient(circle at 35% 30%, #fff6c0, #ffcf33 55%, #cf9600); box-shadow:0 0 6px #ffdd55; }
+#flash-overlay {
+  position:fixed; inset:0; background:#ff2b4d; opacity:0; pointer-events:none; z-index:8; transition:opacity .05s linear;
+}
+#vignette {
+  position:fixed; inset:0; pointer-events:none; z-index:4;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 100%);
+}
+#speedlines {
+  position:fixed; inset:0; pointer-events:none; z-index:3; opacity:0;
+  background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.05) 0deg 2deg, rgba(0,0,0,0) 2deg 8deg);
+  mix-blend-mode: screen;
+}
+
+/* Loading screen sits ABOVE the HUD (5) and every other overlay (10) and
+   is fully opaque, so nothing behind it — including the pop-in of models
+   that are still mid-load — is visible until loading finishes. */
+#loading-screen {
+  position:fixed; inset:0; z-index:20;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:linear-gradient(180deg, #180f2c, #08050f);
+  color:#fff; text-align:center;
+}
+#loading-screen.hidden { display:none; }
+.loading-spinner {
+  width:52px; height:52px; border-radius:50%; margin-bottom:22px;
+  border:5px solid rgba(255,255,255,.15); border-top-color:#ffcf33;
+  animation: loading-spin .9s linear infinite;
+}
+@keyframes loading-spin { to { transform:rotate(360deg); } }
+.loading-text { font-size:14px; opacity:.8; }
+.loading-bar-track {
+  width:min(340px, 70vw); height:8px; border-radius:6px; margin-top:16px;
+  background:rgba(255,255,255,.15); overflow:hidden;
+}
+.loading-bar-fill {
+  height:100%; width:0%; background:linear-gradient(90deg, var(--rd-gold-1), var(--rd-gold-2));
+  transition:width .15s ease;
+}
+
+.pause-line {
+  font-size:16px; font-weight:700; opacity:.85; margin-bottom:6px;
+}
