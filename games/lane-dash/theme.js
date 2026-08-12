@@ -117,7 +117,11 @@ const RunnerTheme = {
   // alternating sides, keyed off absolute distance the same way billboards
   // are — was previously `11 + Math.random()*5` with a random side each
   // time, which could clump two on the same side back to back.
-  STREETLIGHT_INTERVAL: 12,
+  // 24 = half as many as the original ~12-16 average spacing: each
+  // streetlight is 5 separate meshes (pole/arm/lamp/cone/pool), and with
+  // SEGMENTS_AHEAD=11 segments loaded at once this was one of the largest
+  // single contributors to draw-call count alongside buildings.
+  STREETLIGHT_INTERVAL: 24,
 
   // ---- billboards ------------------------------------------------------
   // WHICH images/videos actually show is sponsor content, see billboards.js
