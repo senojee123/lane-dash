@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leaderboard</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="stage">
+    <header class="stage__header">
+      <h1 class="stage__title"><span class="stage__title-icon">🏆</span> LEADERBOARD</h1>
+      <div class="stage__status">
+        <span id="liveDot" class="live-dot" aria-hidden="true"></span>
+        <span id="liveLabel">connecting…</span>
+      </div>
+    </header>
+
+    <main id="board" class="board" aria-live="polite">
+      <!-- rows injected by app.js -->
+    </main>
+
+    <footer class="stage__footer">
+      <span id="updatedAt">—</span>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+node_modules/
+
+# Per-deployment secrets (Supabase URL/key/table) — copy the matching
+# config.example.js to config.js and fill in real values locally.
+config.js

@@ -1,0 +1,3302 @@
+================================================================================
+LANE DASH — ENDLESS RUNNER — FULL PROJECT SOURCE COMPILATION
+================================================================================
+
+Ordering: entry point first (index.html), then the core asset/model
+registry (assets.js), then feature modules in the same order the game
+loads them at runtime (cityModels.js -> trafficVehicles.js ->
+character.js -> config.example.js/config.js -> supabaseClient.js),
+then the main game loop (game.js), then the touch-input layer that
+sits on top of it (touchControls.js).
+
+Total files included: 10
+Approximate total line count: 3229
+
+Excluded from this compilation: assets/ (binary .glb/.fbx/.png models,
+textures, animations, License.txt files — not source code).
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+  1. index.html               (222 lines)
+  2. assets.js                (499 lines)
+  3. cityModels.js            (239 lines)
+  4. trafficVehicles.js       (298 lines)
+  5. character.js             (398 lines)
+  6. config.example.js        (22 lines)
+  7. config.js                (12 lines)
+  8. supabaseClient.js        (58 lines)
+  9. game.js                  (1403 lines)
+  10. touchControls.js         (78 lines)
+
+================================================================================
+
+================================================================================
+FILE: index.html
+================================================================================
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Lane Dash — Endless Runner</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#0a0a14; font-family: 'Segoe UI', Verdana, sans-serif; }
+  #game-canvas { display:block; width:100%; height:100%; touch-action:none; }
+
+  #hud {
+    position:fixed; top:0; left:0; width:100%; padding:16px 20px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none; z-index:5; color:#fff; text-shadow:0 2px 6px rgba(0,0,0,.6);
+  }
+  /* clamp() instead of fixed px so the HUD scales down on narrow phone
+     screens rather than assuming a fixed desktop-sized viewport. */
+  #hud .score-block { font-size:clamp(22px,7vw,34px); font-weight:800; letter-spacing:1px; }
+  #hud .sub { font-size:clamp(11px,3vw,14px); font-weight:600; opacity:.85; margin-top:2px; }
+  #hud .hud-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+  #hud .coin-block { font-size:clamp(15px,4.5vw,22px); font-weight:700; display:flex; align-items:center; gap:8px; background:rgba(0,0,0,.28); padding:8px 14px; border-radius:30px; }
+  #hud .mult-block {
+    font-size:clamp(13px,4vw,20px); font-weight:800; letter-spacing:.5px; padding:6px 14px; border-radius:30px;
+    background:rgba(0,0,0,.28); color:#7CFF9E;
+  }
+  #hud .coin-dot { width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff6c0, #ffcf33 55%, #cf9600); box-shadow:0 0 6px #ffdd55; }
+
+  /* #hud itself is pointer-events:none (score/coins shouldn't eat swipes), so
+     the pause button opts itself back in and is the one HUD element sized
+     for a fingertip — 44px is the standard minimum comfortable touch target. */
+  #hud-pause-btn {
+    pointer-events:auto; width:44px; height:44px; min-width:44px; min-height:44px;
+    border-radius:50%; border:none; background:rgba(0,0,0,.32); color:#fff;
+    font-size:20px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; margin-bottom:4px; align-self:flex-end;
+  }
+  #hud-pause-btn:active { background:rgba(0,0,0,.5); }
+
+  .overlay {
+    position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, rgba(20,10,40,.55), rgba(5,5,15,.85));
+    color:#fff; text-align:center; z-index:10; padding:20px;
+  }
+  .overlay.hidden { display:none; }
+  .title-logo {
+    font-size:clamp(38px,8vw,64px); font-weight:900; letter-spacing:2px;
+    background:linear-gradient(90deg,#ffe259,#ffa751,#ff5f8f,#7c4dff);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 4px 18px rgba(0,0,0,.35); margin-bottom:6px;
+  }
+  .subtitle { font-size:15px; opacity:.85; margin-bottom:26px; }
+  .name-input {
+    padding:14px 16px; font-size:18px; border-radius:10px; border:2px solid rgba(255,255,255,.18);
+    background:rgba(255,255,255,.06); color:#fff; text-align:center; width:min(280px,80vw);
+    margin-bottom:22px; outline:none; font-family:inherit;
+  }
+  .name-input::placeholder { color:rgba(255,255,255,.4); }
+  .name-input:focus { border-color:#ffd166; }
+  .big-btn {
+    font-size:20px; font-weight:800; letter-spacing:.5px; color:#1a1a1a;
+    background:linear-gradient(90deg,#ffe259,#ffa751); border:none; padding:16px 46px;
+    border-radius:50px; cursor:pointer; box-shadow:0 8px 20px rgba(255,150,60,.4);
+    transition:transform .12s ease;
+  }
+  .big-btn:active { transform:scale(.94); }
+  .go-score { font-size:52px; font-weight:900; margin:6px 0 2px; }
+  .go-sub { font-size:16px; opacity:.85; margin-bottom:4px; }
+  .go-high { font-size:15px; color:#ffd166; font-weight:700; margin-bottom:22px; }
+  .new-high { color:#7CFF9E; font-weight:800; }
+
+  .big-btn.secondary {
+    background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.28);
+    box-shadow:none; font-size:16px; padding:12px 34px; margin-top:12px;
+  }
+  .bank-line {
+    display:flex; align-items:center; gap:8px; justify-content:center;
+    font-size:16px; font-weight:700; margin-bottom:18px; opacity:.92;
+  }
+  .coin-dot { width:18px; height:18px; border-radius:50%; flex:none;
+    background:radial-gradient(circle at 35% 30%, #fff6c0, #ffcf33 55%, #cf9600); box-shadow:0 0 6px #ffdd55; }
+  #flash-overlay {
+    position:fixed; inset:0; background:#ff2b4d; opacity:0; pointer-events:none; z-index:8; transition:opacity .05s linear;
+  }
+  #vignette {
+    position:fixed; inset:0; pointer-events:none; z-index:4;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 100%);
+  }
+  #speedlines {
+    position:fixed; inset:0; pointer-events:none; z-index:3; opacity:0;
+    background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.05) 0deg 2deg, rgba(0,0,0,0) 2deg 8deg);
+    mix-blend-mode: screen;
+  }
+
+  /* Loading screen sits ABOVE the HUD (5) and every other overlay (10) and
+     is fully opaque, so nothing behind it — including the pop-in of models
+     that are still mid-load — is visible until loading finishes. */
+  #loading-screen {
+    position:fixed; inset:0; z-index:20;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, #180f2c, #08050f);
+    color:#fff; text-align:center;
+  }
+  #loading-screen.hidden { display:none; }
+  .loading-spinner {
+    width:52px; height:52px; border-radius:50%; margin-bottom:22px;
+    border:5px solid rgba(255,255,255,.15); border-top-color:#ffcf33;
+    animation: loading-spin .9s linear infinite;
+  }
+  @keyframes loading-spin { to { transform:rotate(360deg); } }
+  .loading-text { font-size:14px; opacity:.8; }
+  .loading-bar-track {
+    width:min(340px, 70vw); height:8px; border-radius:6px; margin-top:16px;
+    background:rgba(255,255,255,.15); overflow:hidden;
+  }
+  .loading-bar-fill {
+    height:100%; width:0%; background:linear-gradient(90deg,#ffe259,#ffa751);
+    transition:width .15s ease;
+  }
+
+  .pause-line {
+    font-size:16px; font-weight:700; opacity:.85; margin-bottom:6px;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game-canvas"></canvas>
+<div id="vignette"></div>
+<div id="speedlines"></div>
+<div id="flash-overlay"></div>
+
+<div id="loading-screen">
+  <div class="title-logo" style="font-size:clamp(30px,7vw,52px);">LANE DASH</div>
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loading-text">Loading assets&hellip;</div>
+  <div class="loading-bar-track"><div class="loading-bar-fill" id="loading-bar-fill"></div></div>
+</div>
+
+<div id="hud" style="display:none;">
+  <div>
+    <div class="score-block" id="hud-score">0</div>
+    <div class="sub" id="hud-high">Best: 0</div>
+  </div>
+  <div class="hud-right">
+    <button id="hud-pause-btn" aria-label="Pause">&#10074;&#10074;</button>
+    <div class="coin-block"><span class="coin-dot"></span><span id="hud-coins">0</span></div>
+    <div class="mult-block" id="hud-mult">x1</div>
+  </div>
+</div>
+
+<div id="start-screen" class="overlay">
+  <div class="title-logo">LANE DASH</div>
+  <div class="subtitle">Help Joshua keep running</div>
+  <input type="text" id="username-input" class="name-input" placeholder="Enter your name..." maxlength="12">
+  <div class="bank-line"><span class="coin-dot"></span>coins &times; distance multiplier = score</div>
+  <button class="big-btn" id="start-btn">TAP TO RUN</button>
+</div>
+
+<div id="gameover-screen" class="overlay hidden">
+  <div class="title-logo" style="font-size:38px;">WIPED OUT</div>
+  <div class="go-score" id="go-score">0</div>
+  <div class="go-sub" id="go-coins">0 coins collected</div>
+  <div class="go-high" id="go-high">Best: 0</div>
+  <button class="big-btn" id="restart-btn">RESTART</button>
+  <button class="big-btn secondary" id="gameover-menu-btn">MAIN MENU</button>
+</div>
+
+<div id="pause-screen" class="overlay hidden">
+  <div class="title-logo" style="font-size:38px;">PAUSED</div>
+  <div class="pause-line">Score</div>
+  <div class="go-score" id="pause-score">0</div>
+  <div class="go-sub" id="pause-coins">0 coins &times; 1</div>
+  <button class="big-btn" id="pause-resume-btn">CONTINUE</button>
+  <button class="big-btn secondary" id="pause-end-btn">END RUN</button>
+  <div style="margin-top:16px; opacity:.6; font-size:13px;">Tap CONTINUE to resume</div>
+</div>
+
+<!-- Loading progress tracker: every asset-loading module (assets.js's model
+     cache users — cityModels.js / trafficVehicles.js / character.js) reports
+     into this as it goes, so the loading screen above can't be dismissed
+     until everything it counted has actually resolved. Declared before the
+     library/game scripts so it exists by the time they run. -->
+<script>
+  window.AssetLoader = {
+    total: 0,
+    loaded: 0,
+    add(n) { this.total += n; this._render(); },
+    tick() { this.loaded++; this._render(); },
+    _render() {
+      const textEl = document.getElementById('loading-text');
+      const fillEl = document.getElementById('loading-bar-fill');
+      if (!this.total) { if (textEl) textEl.textContent = 'Loading assets…'; return; }
+      const done = Math.min(this.loaded, this.total);
+      const pct = (done / this.total) * 100;
+      if (textEl) textEl.textContent = 'Loading assets… ' + done + ' / ' + this.total;
+      if (fillEl) fillEl.style.width = pct + '%';
+    },
+  };
+</script>
+
+<!-- Three.js r128 (single dependency, no build step) -->
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<!-- FBXLoader deps: fflate inflates binary FBX, NURBSCurve is a hard require -->
+<script src="https://unpkg.com/fflate@0.6.9/umd/index.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/curves/NURBSUtils.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/curves/NURBSCurve.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="assets.js"></script>
+<script src="cityModels.js"></script>
+<script src="trafficVehicles.js"></script>
+<script src="character.js"></script>
+<!-- Config (see config.example.js) must load before both the Supabase CDN
+     client and supabaseClient.js, which reads window.GAME_CONFIG from it. -->
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabaseClient.js"></script>
+<script src="game.js"></script>
+<script src="touchControls.js"></script>
+</body>
+</html>
+
+================================================================================
+FILE: assets.js
+================================================================================
+/* ============================================================================
+   ASSET REGISTRY
+   ----------------------------------------------------------------------------
+   Central place that maps an asset KEY ("player", "car", "coin", ...) to:
+     - a build mode: "primitive" (procedural Three.js geometry, used today) or
+       "model" (a glTF/GLB file, for later)
+     - a `footprint` describing the collision box used by gameplay code
+       (width/height/depth + yBase, the height of the box's bottom above ground)
+     - for primitives: a `build()` factory that returns a THREE.Group
+     - for models: a `path` to the .glb/.gltf file + a `scale`
+
+   HOW TO SWAP A PRIMITIVE FOR A REAL MODEL LATER
+   ----------------------------------------------------------------------------
+   1. Drop your .glb file somewhere under this project (e.g. /models/car.glb).
+   2. Change that entry's `type` to "model" and add a `path` (and optional
+      `scale` / `rotationY` to align it to the same footprint/orientation the
+      primitive used).
+   3. That's it — nothing in game.js references geometry directly, it always
+      calls `AssetRegistry.create(key)`, which transparently uses GLTFLoader
+      for "model" entries. Keep the footprint numbers matching the visual
+      size of the new model so collisions still feel fair.
+
+   Example of a swapped-in entry:
+     car: {
+       type: "model",
+       path: "models/car.glb",
+       scale: 1.2,
+       rotationY: Math.PI,
+       footprint: { width: 2.0, height: 1.4, depth: 4.0, yBase: 0 }
+     }
+============================================================================ */
+
+const Palette = {
+  playerSkin: 0xffc79e,
+  playerShirt: 0xff5f8f,
+  playerPants: 0x2e3a59,
+  playerShoe: 0x1a1a1a,
+
+  stripeRed: 0xe63946,
+  stripeWhite: 0xf1faee,
+
+  road: 0x3a3a44,
+  roadLine: 0xf2f2f2,
+  sidewalk: 0x8d99ae,
+  grass: 0x5fb85f,
+
+  buildings: [0xffb703, 0xfb8500, 0x8ecae6, 0x219ebc, 0xffafcc, 0xa663cc, 0xef9d8f],
+  vehicles: [0xe63946, 0x1d8feb, 0xf4a300, 0x2ecc71, 0x9b5de5, 0xf15bb5],
+  treeFoliage: [0x2d9d5b, 0x3bb273, 0x1f8a4c],
+  gold: 0xffd166,
+};
+
+// -------- shared geometries & materials (created ONCE, reused everywhere) --------
+const Geo = {
+  box: new THREE.BoxGeometry(1, 1, 1),
+  cylinder: new THREE.CylinderGeometry(1, 1, 1, 12),
+  sphere: new THREE.SphereGeometry(1, 12, 10),
+  cone: new THREE.ConeGeometry(1, 1, 10),
+  circle: new THREE.CircleGeometry(1, 20),
+  torus: new THREE.TorusGeometry(1, 0.35, 8, 20),
+  capsule: (function () {
+    // simple capsule approximation using a cylinder + two spheres, built per-use in buildPlayer
+    return null;
+  })(),
+};
+
+const Mat = {
+  skin: new THREE.MeshToonMaterial({ color: Palette.playerSkin }),
+  shirt: new THREE.MeshToonMaterial({ color: Palette.playerShirt }),
+  pants: new THREE.MeshToonMaterial({ color: Palette.playerPants }),
+  shoe: new THREE.MeshToonMaterial({ color: Palette.playerShoe }),
+  stripeRed: new THREE.MeshToonMaterial({ color: Palette.stripeRed }),
+  stripeWhite: new THREE.MeshToonMaterial({ color: Palette.stripeWhite }),
+  pole: new THREE.MeshToonMaterial({ color: 0x666666 }),
+  road: new THREE.MeshLambertMaterial({ color: Palette.road }),
+  roadLine: new THREE.MeshBasicMaterial({ color: Palette.roadLine }),
+  sidewalk: new THREE.MeshLambertMaterial({ color: Palette.sidewalk }),
+  grass: new THREE.MeshLambertMaterial({ color: Palette.grass }),
+  gold: new THREE.MeshToonMaterial({ color: Palette.gold, emissive: 0x664400, emissiveIntensity: 0.15 }),
+  glassDark: new THREE.MeshToonMaterial({ color: 0x1b1b2a }),
+  tireBlack: new THREE.MeshToonMaterial({ color: 0x111111 }),
+  lampGlow: new THREE.MeshBasicMaterial({
+    color: 0xfff4c2, transparent: true, opacity: 0.11, depthWrite: false,
+    side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+  }),
+  lampPool: new THREE.MeshBasicMaterial({
+    color: 0xfff0b8, transparent: true, opacity: 0.15, depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }),
+};
+
+function randChoice(arr) { return arr[(Math.random() * arr.length) | 0]; }
+
+// ---------------------------------------------------------------------------
+// PLAYER
+// ---------------------------------------------------------------------------
+function buildPlayer() {
+  const group = new THREE.Group();
+
+  const torso = new THREE.Mesh(Geo.box, Mat.shirt);
+  torso.scale.set(0.62, 0.6, 0.36);
+  torso.position.y = 1.18;
+  group.add(torso);
+
+  const head = new THREE.Mesh(Geo.sphere, Mat.skin);
+  head.scale.set(0.28, 0.3, 0.28);
+  head.position.y = 1.68;
+  group.add(head);
+
+  const hips = new THREE.Mesh(Geo.box, Mat.pants);
+  hips.scale.set(0.56, 0.26, 0.34);
+  hips.position.y = 0.82;
+  group.add(hips);
+
+  function makeLimb(mat, w, h, d, isArm) {
+    const pivot = new THREE.Group();
+    const mesh = new THREE.Mesh(Geo.box, mat);
+    mesh.scale.set(w, h, d);
+    mesh.position.y = -h / 2;
+    pivot.add(mesh);
+    if (!isArm) {
+      const shoe = new THREE.Mesh(Geo.box, Mat.shoe);
+      shoe.scale.set(w * 1.15, 0.14, d * 1.3);
+      shoe.position.y = -h - 0.05;
+      pivot.add(shoe);
+    }
+    return pivot;
+  }
+
+  const legL = makeLimb(Mat.pants, 0.22, 0.62, 0.24, false);
+  legL.position.set(-0.16, 0.78, 0);
+  const legR = makeLimb(Mat.pants, 0.22, 0.62, 0.24, false);
+  legR.position.set(0.16, 0.78, 0);
+
+  const armL = makeLimb(Mat.skin, 0.16, 0.52, 0.18, true);
+  armL.position.set(-0.42, 1.42, 0);
+  const armR = makeLimb(Mat.skin, 0.16, 0.52, 0.18, true);
+  armR.position.set(0.42, 1.42, 0);
+
+  group.add(legL, legR, armL, armR);
+
+  group.userData.parts = { torso, head, hips, legL, legR, armL, armR };
+  return group;
+}
+
+// ---------------------------------------------------------------------------
+// OBSTACLES
+// ---------------------------------------------------------------------------
+function buildBarrierLow() {
+  // JUMP-ONLY wall. Its top is at y=1.8 — level with `barrier_high`'s beam —
+  // and it is SOLID all the way to the ground, so there is no hole to roll
+  // through. Jumping is the only way past it.
+  const group = new THREE.Group();
+
+  const slab = new THREE.Mesh(Geo.box, Mat.stripeRed);
+  slab.scale.set(2.2, 1.8, 0.3);
+  slab.position.y = 0.9;
+  group.add(slab);
+
+  // vertical hazard stripes down the face
+  for (let i = -1; i <= 1; i += 2) {
+    const stripe = new THREE.Mesh(Geo.box, Mat.stripeWhite);
+    stripe.scale.set(0.4, 1.8, 0.32);
+    stripe.position.set(i * 0.75, 0.9, 0);
+    group.add(stripe);
+  }
+  // capping rail, so the top edge you have to clear reads clearly
+  const rail = new THREE.Mesh(Geo.box, Mat.pole);
+  rail.scale.set(2.28, 0.16, 0.38);
+  rail.position.y = 1.72;
+  group.add(rail);
+
+  return group;
+}
+
+function buildBarrierHigh() {
+  // Suspended beam, spanning y = 1.0 .. 1.8. Deliberately low enough that the
+  // jump arc clears its top AND high enough that a roll fits underneath —
+  // this is the "player's choice" obstacle.
+  const group = new THREE.Group();
+  const beam = new THREE.Mesh(Geo.box, Mat.stripeRed);
+  beam.scale.set(2.3, 0.8, 0.35);
+  beam.position.y = 1.4;
+  group.add(beam);
+  for (let i = -1; i <= 1; i += 2) {
+    const stripe = new THREE.Mesh(Geo.box, Mat.stripeWhite);
+    stripe.scale.set(0.42, 0.82, 0.37);
+    stripe.position.set(i * 0.78, 1.4, 0);
+    group.add(stripe);
+  }
+  const postGeo = Geo.cylinder;
+  const postL = new THREE.Mesh(postGeo, Mat.pole);
+  postL.scale.set(0.09, 1.0, 0.09);
+  postL.position.set(-1.05, 0.5, 0);
+  const postR = postL.clone();
+  postR.position.x = 1.05;
+  group.add(postL, postR);
+  return group;
+}
+
+function buildBarrierGap() {
+  // A wall too tall to jump, with a gap cut out underneath — the ROLL-ONLY
+  // obstacle. Solid slab spans y = 1.0 .. 3.6; the clear hole below it is
+  // exactly the height a rolling player occupies.
+  const group = new THREE.Group();
+
+  const slab = new THREE.Mesh(Geo.box, Mat.stripeRed);
+  slab.scale.set(2.3, 2.6, 0.34);
+  slab.position.y = 2.3;
+  group.add(slab);
+
+  // hazard chevrons along the bottom lip, so the hole reads at a glance
+  for (let i = -1; i <= 1; i++) {
+    const stripe = new THREE.Mesh(Geo.box, Mat.stripeWhite);
+    stripe.scale.set(0.46, 0.3, 0.37);
+    stripe.position.set(i * 0.72, 1.18, 0);
+    group.add(stripe);
+  }
+  // and a lintel band across the top
+  const cap = new THREE.Mesh(Geo.box, Mat.stripeWhite);
+  cap.scale.set(2.34, 0.22, 0.38);
+  cap.position.y = 3.48;
+  group.add(cap);
+
+  // side posts framing the hole — visual only, the footprint is the slab
+  const postL = new THREE.Mesh(Geo.cylinder, Mat.pole);
+  postL.scale.set(0.1, 1.0, 0.1);
+  postL.position.set(-1.08, 0.5, 0);
+  const postR = postL.clone();
+  postR.position.x = 1.08;
+  group.add(postL, postR);
+
+  return group;
+}
+
+// ---------------------------------------------------------------------------
+// COLLECTIBLE
+// ---------------------------------------------------------------------------
+function buildCoin() {
+  const group = new THREE.Group();
+  const coin = new THREE.Mesh(Geo.cylinder, Mat.gold);
+  coin.scale.set(0.34, 0.07, 0.34);
+  coin.rotation.z = Math.PI / 2;
+  group.add(coin);
+  const ring = new THREE.Mesh(Geo.torus, Mat.gold);
+  ring.scale.set(0.36, 0.36, 0.08);
+  ring.rotation.y = Math.PI / 2;
+  group.add(ring);
+  group.userData.spin = true;
+  return group;
+}
+
+// ---------------------------------------------------------------------------
+// SCENERY
+// ---------------------------------------------------------------------------
+function buildTree() {
+  const group = new THREE.Group();
+  const trunk = new THREE.Mesh(Geo.cylinder, new THREE.MeshToonMaterial({ color: 0x7a4a2b }));
+  trunk.scale.set(0.22, 1.1, 0.22);
+  trunk.position.y = 0.55;
+  group.add(trunk);
+  const foliageColor = randChoice(Palette.treeFoliage);
+  const foliageMat = new THREE.MeshToonMaterial({ color: foliageColor });
+  for (let i = 0; i < 3; i++) {
+    const cone = new THREE.Mesh(Geo.cone, foliageMat);
+    const s = 1.3 - i * 0.28;
+    cone.scale.set(s, s * 1.1, s);
+    cone.position.y = 1.3 + i * 0.75;
+    group.add(cone);
+  }
+  return group;
+}
+
+function buildBuilding() {
+  const group = new THREE.Group();
+  const color = randChoice(Palette.buildings);
+  const mat = new THREE.MeshToonMaterial({ color });
+  const w = 3 + Math.random() * 2.5;
+  const h = 5 + Math.random() * 14;
+  const d = 3 + Math.random() * 2.5;
+  const body = new THREE.Mesh(Geo.box, mat);
+  body.scale.set(w, h, d);
+  body.position.y = h / 2;
+  group.add(body);
+
+  // windows: a lit-window trim strip using emissive-ish flat color blocks
+  const winMat = new THREE.MeshBasicMaterial({ color: 0xfff2b0 });
+  const rows = Math.floor(h / 1.6);
+  const cols = Math.max(1, Math.floor(w / 1.1));
+  for (let r = 1; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (Math.random() > 0.55) continue;
+      const win = new THREE.Mesh(Geo.box, winMat);
+      win.scale.set(0.5, 0.7, 0.05);
+      win.position.set(-w / 2 + (c + 0.5) * (w / cols), r * 1.6, d / 2 + 0.02);
+      group.add(win);
+    }
+  }
+  return group;
+}
+
+function buildStreetlight() {
+  const group = new THREE.Group();
+  const pole = new THREE.Mesh(Geo.cylinder, Mat.pole);
+  pole.scale.set(0.09, 3.2, 0.09);
+  pole.position.y = 1.6;
+  group.add(pole);
+  const arm = new THREE.Mesh(Geo.box, Mat.pole);
+  arm.scale.set(0.8, 0.08, 0.08);
+  arm.position.set(0.4, 3.15, 0);
+  group.add(arm);
+  const lamp = new THREE.Mesh(Geo.sphere, new THREE.MeshBasicMaterial({ color: 0xfff4c2 }));
+  lamp.scale.set(0.22, 0.22, 0.22);
+  lamp.position.set(0.78, 3.05, 0);
+  group.add(lamp);
+
+  // Light spill onto the road. These are plain additive meshes, NOT real
+  // lights — there are ~30 streetlights alive at once and that many
+  // THREE.SpotLights would blow past the renderer's light limits and tank
+  // the frame rate for a purely cosmetic effect.
+  // Everything below leans along +X, the same direction as the arm, so the
+  // whole fixture reads as facing the road once the group is turned.
+  const cone = new THREE.Mesh(Geo.cone, Mat.lampGlow);
+  cone.scale.set(1.5, 3.1, 1.5);
+  cone.position.set(1.06, 1.53, 0);
+  cone.rotation.z = 0.18; // splay the wide end out over the tarmac
+  group.add(cone);
+
+  const pool = new THREE.Mesh(Geo.circle, Mat.lampPool);
+  pool.rotation.x = -Math.PI / 2;
+  pool.scale.set(1.7, 2.4, 1);
+  pool.position.set(1.6, 0.02, 0);
+  group.add(pool);
+
+  return group;
+}
+
+// Lane divider dash — one short bright stripe painted flat on the road. The
+// generator lays a row of these down each scrolling segment (with gaps
+// between them) so they read as scrolling dashes, same as any highway lane
+// marking, rather than a static texture on the non-scrolling road plane.
+function buildLaneDash() {
+  const group = new THREE.Group();
+  const mesh = new THREE.Mesh(Geo.box, Mat.roadLine);
+  mesh.scale.set(0.14, 0.015, 1.6);
+  mesh.position.y = 0.012; // just proud of the road surface to avoid z-fighting
+  group.add(mesh);
+  return group;
+}
+
+// ---------------------------------------------------------------------------
+// REGISTRY
+// ---------------------------------------------------------------------------
+const AssetRegistry = {
+  player: {
+    type: 'primitive',
+    build: buildPlayer,
+    footprint: { width: 0.72, height: 1.85, depth: 0.7, yBase: 0 },
+  },
+  // JUMP-ONLY: solid from the ground up to y=1.8, no gap underneath.
+  barrier_low: {
+    type: 'primitive',
+    build: buildBarrierLow,
+    footprint: { width: 2.2, height: 1.8, depth: 0.5, yBase: 0 },
+  },
+  // EITHER: beam from 1.0 to 1.8 — roll under it or jump over it.
+  barrier_high: {
+    type: 'primitive',
+    build: buildBarrierHigh,
+    footprint: { width: 2.3, height: 0.8, depth: 0.5, yBase: 1.0 },
+  },
+  // ROLL-ONLY: wall from 1.0 to 3.6, far above the jump apex, with the hole
+  // underneath as the only way through.
+  barrier_gap: {
+    type: 'primitive',
+    build: buildBarrierGap,
+    footprint: { width: 2.3, height: 2.6, depth: 0.5, yBase: 1.0 },
+  },
+  // VEHICLES live in trafficVehicles.js — they are Kenney Car Kit GLBs
+  // registered as type:"model" entries at startup, not primitives.
+  coin: {
+    type: 'primitive',
+    build: buildCoin,
+    footprint: { width: 0.4, height: 0.4, depth: 0.4, yBase: 0 },
+  },
+  tree: {
+    type: 'primitive',
+    build: buildTree,
+    footprint: { width: 1, height: 1, depth: 1, yBase: 0 },
+  },
+  building: {
+    type: 'primitive',
+    build: buildBuilding,
+    footprint: { width: 1, height: 1, depth: 1, yBase: 0 },
+  },
+  streetlight: {
+    type: 'primitive',
+    build: buildStreetlight,
+    footprint: { width: 1, height: 1, depth: 1, yBase: 0 },
+  },
+  lane_dash: {
+    type: 'primitive',
+    build: buildLaneDash,
+    footprint: { width: 0.14, height: 0.015, depth: 1.6, yBase: 0 },
+  },
+};
+
+// ---------------------------------------------------------------------------
+// MODEL CACHE — populated by cityModels.js once a GLB has finished loading
+// (or has permanently failed). AssetRegistry.create() below is cache-first:
+// it never loads anything itself, it only clones what's already cached, so
+// spawning a "model" asset is as cheap as spawning a primitive.
+//   ModelCache[key] = { template: THREE.Group } on success
+//   ModelCache[key] = { failed: true } on permanent failure
+// A key missing from ModelCache simply means "still loading" — create()
+// falls back to a same-footprint placeholder box in the meantime; once the
+// load resolves, the NEXT spawn of that key (e.g. the next recycled
+// segment) will pick up the real model automatically.
+// ---------------------------------------------------------------------------
+const ModelCache = {};
+
+function buildFallbackBox(key, fp) {
+  const group = new THREE.Group();
+  const mat = new THREE.MeshToonMaterial({ color: randChoice(Palette.buildings) });
+  const mesh = new THREE.Mesh(Geo.box, mat);
+  mesh.scale.set(fp.width, fp.height, fp.depth);
+  mesh.position.y = fp.height / 2 + (fp.yBase || 0);
+  group.add(mesh);
+  group.userData.isFallback = true;
+  return group;
+}
+
+// Clones a cached model template with INDEPENDENT materials per instance
+// (Object3D.clone() shares material references by default), so a color
+// variant applied to one spawned instance never bleeds into any other.
+function cloneModelInstance(template) {
+  const instance = template.clone(true);
+  instance.traverse((node) => {
+    if (node.isMesh && node.material) {
+      node.material = Array.isArray(node.material)
+        ? node.material.map((m) => m.clone())
+        : node.material.clone();
+    }
+  });
+  return instance;
+}
+
+/**
+ * Creates a fresh instance of `key`. This is the ONLY place gameplay code
+ * should go through to get a mesh — never build geometry inline elsewhere.
+ * Handles both "primitive" (built procedurally) and "model" (glTF, loaded
+ * and cached by cityModels.js) modes transparently.
+ */
+AssetRegistry.create = function (key) {
+  const def = AssetRegistry[key];
+  if (!def) throw new Error('Unknown asset key: ' + key);
+
+  if (def.type === 'model') {
+    const cached = ModelCache[key];
+    const mesh = (cached && cached.template)
+      ? cloneModelInstance(cached.template)
+      : buildFallbackBox(key, def.footprint);
+    mesh.userData.assetKey = key;
+    return mesh;
+  }
+
+  const mesh = def.build();
+  mesh.userData.assetKey = key;
+  return mesh;
+};
+
+// ---------------------------------------------------------------------------
+// LIGHTWEIGHT OBJECT POOL — reuse Group instances instead of allocating new
+// geometry/materials every time a segment recycles.
+// ---------------------------------------------------------------------------
+const MeshPool = {
+  _free: {},
+  acquire(key) {
+    const bucket = this._free[key];
+    while (bucket && bucket.length) {
+      const m = bucket.pop();
+      // A placeholder pooled *before* its GLB finished loading must never be
+      // handed back out once the real model exists. Its geometry is baked to
+      // the guessed fallback footprint, so callers scaling it against the
+      // real measured footprint produce wildly wrong sizes (and buildings
+      // wide enough to spill across the road). Drop it and build fresh.
+      if (m.userData.isFallback && ModelCache[key] && ModelCache[key].template) continue;
+      m.visible = true;
+      return m;
+    }
+    return AssetRegistry.create(key);
+  },
+  release(mesh) {
+    const key = mesh.userData.assetKey;
+    mesh.visible = false;
+    if (mesh.parent) mesh.parent.remove(mesh);
+    (this._free[key] = this._free[key] || []).push(mesh);
+  },
+};
+
+================================================================================
+FILE: cityModels.js
+================================================================================
+/* ============================================================================
+   CITYMODELS.JS — loads & caches the Kenney "City Kit: Commercial" GLB pack
+   and registers every model into the existing AssetRegistry (see assets.js).
+   ----------------------------------------------------------------------------
+   Pipeline:
+     1. MANIFEST lists every model key -> .glb path (+ a rough fallback
+        footprint used only if that file ever fails to load).
+     2. init() kicks off one GLTFLoader.load() per manifest entry, ONCE, at
+        startup, plus one TextureLoader.load() per color atlas. Results are
+        cached (CityModels / ModelCache) — nothing here re-parses a GLB per
+        spawn; AssetRegistry.create() (assets.js) just clones the cached
+        template.
+     3. Every manifest key is written into AssetRegistry as type:"model" so
+        the rest of the game (scenery generator, prop placement, etc.) asks
+        for e.g. "building_a" or "detail_awning" exactly like it would ask
+        for any procedural primitive — it never needs to know a GLB was
+        involved.
+     4. On load, each model's real bounding box is measured and logged, and
+        used to correct that key's AssetRegistry footprint (the fallback
+        numbers in MANIFEST are only guesses for the failure case).
+     5. If a file 404s or fails to parse, that key is marked failed in
+        ModelCache and AssetRegistry.create() will keep silently handing out
+        a same-footprint placeholder box for it — one clear console.warn is
+        emitted at the moment of failure, not on every spawn.
+============================================================================ */
+
+const CityModels = {
+  textures: { colormap: null, variationA: null, variationB: null },
+  ready: false,
+  _loadPromise: null,
+};
+
+// key -> { file, footprint (fallback guess, overwritten by measured size on load), tier }
+const CITY_MODEL_MANIFEST = {
+  // ---- full-detail buildings (14) — use near the road / close to camera ----
+  building_a: { file: 'building-a.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
+  building_b: { file: 'building-b.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
+  building_c: { file: 'building-c.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
+  building_d: { file: 'building-d.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
+  building_e: { file: 'building-e.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
+  building_f: { file: 'building-f.glb', tier: 'full', footprint: { width: 4, height: 12, depth: 4, yBase: 0 } },
+  building_g: { file: 'building-g.glb', tier: 'full', footprint: { width: 4, height: 12, depth: 4, yBase: 0 } },
+  building_h: { file: 'building-h.glb', tier: 'full', footprint: { width: 4, height: 12, depth: 4, yBase: 0 } },
+  building_i: { file: 'building-i.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
+  building_j: { file: 'building-j.glb', tier: 'full', footprint: { width: 4, height: 16, depth: 4, yBase: 0 } },
+  building_k: { file: 'building-k.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
+  building_l: { file: 'building-l.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
+  building_m: { file: 'building-m.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
+  building_n: { file: 'building-n.glb', tier: 'full', footprint: { width: 4, height: 16, depth: 4, yBase: 0 } },
+
+  // ---- skyscrapers (5) — tallest full-detail buildings ----
+  building_skyscraper_a: { file: 'building-skyscraper-a.glb', tier: 'full', footprint: { width: 5, height: 22, depth: 5, yBase: 0 } },
+  building_skyscraper_b: { file: 'building-skyscraper-b.glb', tier: 'full', footprint: { width: 5, height: 24, depth: 5, yBase: 0 } },
+  building_skyscraper_c: { file: 'building-skyscraper-c.glb', tier: 'full', footprint: { width: 5, height: 26, depth: 5, yBase: 0 } },
+  building_skyscraper_d: { file: 'building-skyscraper-d.glb', tier: 'full', footprint: { width: 5, height: 26, depth: 5, yBase: 0 } },
+  building_skyscraper_e: { file: 'building-skyscraper-e.glb', tier: 'full', footprint: { width: 5, height: 20, depth: 5, yBase: 0 } },
+
+  // ---- low-detail buildings (14) — cheaper, for background/distant use ----
+  low_detail_building_a: { file: 'low-detail-building-a.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_b: { file: 'low-detail-building-b.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_c: { file: 'low-detail-building-c.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_d: { file: 'low-detail-building-d.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_e: { file: 'low-detail-building-e.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_f: { file: 'low-detail-building-f.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_g: { file: 'low-detail-building-g.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_h: { file: 'low-detail-building-h.glb', tier: 'low', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
+  low_detail_building_i: { file: 'low-detail-building-i.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_j: { file: 'low-detail-building-j.glb', tier: 'low', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
+  low_detail_building_k: { file: 'low-detail-building-k.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_l: { file: 'low-detail-building-l.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_m: { file: 'low-detail-building-m.glb', tier: 'low', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
+  low_detail_building_n: { file: 'low-detail-building-n.glb', tier: 'low', footprint: { width: 4, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_wide_a: { file: 'low-detail-building-wide-a.glb', tier: 'low', footprint: { width: 8, height: 8, depth: 4, yBase: 0 } },
+  low_detail_building_wide_b: { file: 'low-detail-building-wide-b.glb', tier: 'low', footprint: { width: 8, height: 8, depth: 4, yBase: 0 } },
+
+  // ---- attachable detail props (6) — loadable/retrievable by key only ----
+  detail_awning: { file: 'detail-awning.glb', tier: 'prop', footprint: { width: 2, height: 0.6, depth: 1, yBase: 0 } },
+  detail_awning_wide: { file: 'detail-awning-wide.glb', tier: 'prop', footprint: { width: 3.5, height: 0.6, depth: 1, yBase: 0 } },
+  detail_overhang: { file: 'detail-overhang.glb', tier: 'prop', footprint: { width: 2, height: 0.4, depth: 1, yBase: 0 } },
+  detail_overhang_wide: { file: 'detail-overhang-wide.glb', tier: 'prop', footprint: { width: 3.5, height: 0.4, depth: 1, yBase: 0 } },
+  detail_parasol_a: { file: 'detail-parasol-a.glb', tier: 'prop', footprint: { width: 2, height: 2.2, depth: 2, yBase: 0 } },
+  detail_parasol_b: { file: 'detail-parasol-b.glb', tier: 'prop', footprint: { width: 2, height: 2.2, depth: 2, yBase: 0 } },
+};
+
+const MODEL_BASE_PATH = 'assets/models/';
+const TEXTURE_BASE_PATH = 'assets/textures/';
+
+CityModels.FULL_BUILDING_KEYS = Object.keys(CITY_MODEL_MANIFEST).filter((k) => CITY_MODEL_MANIFEST[k].tier === 'full');
+CityModels.LOW_BUILDING_KEYS = Object.keys(CITY_MODEL_MANIFEST).filter((k) => CITY_MODEL_MANIFEST[k].tier === 'low');
+CityModels.PROP_KEYS = Object.keys(CITY_MODEL_MANIFEST).filter((k) => CITY_MODEL_MANIFEST[k].tier === 'prop');
+CityModels.VARIANT_KEYS = ['colormap', 'variationA', 'variationB'];
+
+// Register every manifest entry into the shared AssetRegistry right away
+// (as type:"model") so other systems can reference these keys immediately —
+// AssetRegistry.create() will hand out placeholder boxes for them until the
+// real GLBs finish loading, per the fallback contract in assets.js.
+Object.keys(CITY_MODEL_MANIFEST).forEach((key) => {
+  const entry = CITY_MODEL_MANIFEST[key];
+  AssetRegistry[key] = {
+    type: 'model',
+    path: MODEL_BASE_PATH + entry.file,
+    footprint: entry.footprint,
+    tier: entry.tier,
+  };
+});
+
+/**
+ * Re-skins an already-spawned instance by swapping its material's color
+ * atlas. variantKey is one of CityModels.VARIANT_KEYS ('colormap' is the
+ * pack's default look; 'variationA' / 'variationB' are the alternate
+ * recolors that ship in Models/Textures/). Zero extra geometry cost — same
+ * mesh, different texture.
+ */
+function applyCityModelVariant(instance, variantKey) {
+  const tex = CityModels.textures[variantKey];
+  if (!tex) return instance;
+  instance.traverse((node) => {
+    if (!node.isMesh || !node.material) return;
+    const mats = Array.isArray(node.material) ? node.material : [node.material];
+    mats.forEach((m) => {
+      if ('map' in m) { m.map = tex; m.needsUpdate = true; }
+    });
+  });
+  return instance;
+}
+
+/**
+ * Spawns a keyed city model (optionally re-skinned with a color variant).
+ * This is the one entry point the scenery/city-wall generator should use.
+ * Goes through AssetRegistry.create() -> cache-first clone (or placeholder
+ * box fallback) — never re-parses a GLB.
+ */
+CityModels.spawn = function (key, variantKey) {
+  const instance = AssetRegistry.create(key);
+  if (variantKey) applyCityModelVariant(instance, variantKey);
+  return instance;
+};
+
+function loadAtlasTexture(loader, filename) {
+  return new Promise((resolve) => {
+    loader.load(
+      TEXTURE_BASE_PATH + filename,
+      (tex) => {
+        tex.flipY = false; // match glTF UV convention
+        if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+        if (window.AssetLoader) AssetLoader.tick();
+        resolve(tex);
+      },
+      undefined,
+      (err) => {
+        console.warn('[CityModels] failed to load color atlas', filename, err);
+        if (window.AssetLoader) AssetLoader.tick();
+        resolve(null);
+      }
+    );
+  });
+}
+
+function loadOneModel(loader, key, entry) {
+  return new Promise((resolve) => {
+    loader.load(
+      MODEL_BASE_PATH + entry.file,
+      (gltf) => {
+        const inner = gltf.scene;
+        const box = new THREE.Box3().setFromObject(inner);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+
+        // NORMALIZE THE PIVOT. The pack's models aren't authored around a
+        // consistent origin, so placing them by raw position let some drift
+        // sideways onto the road. Wrapping each in a group and offsetting the
+        // inner scene gives every model the same contract: centered in x/z,
+        // base sitting exactly on y=0. Placement code can then rely on
+        // "x = setback + width/2" never intruding past the setback.
+        const template = new THREE.Group();
+        inner.position.set(-center.x, -box.min.y, -center.z);
+        template.add(inner);
+
+        console.log(
+          '[CityModels] loaded "%s" — size %s x %s x %s (yMin %s)',
+          key, size.x.toFixed(2), size.y.toFixed(2), size.z.toFixed(2), box.min.y.toFixed(2)
+        );
+        // Real measured footprint replaces the fallback guess so downstream
+        // placement/spacing logic works off actual dimensions.
+        AssetRegistry[key].footprint = {
+          width: size.x || entry.footprint.width,
+          height: size.y || entry.footprint.height,
+          depth: size.z || entry.footprint.depth,
+          yBase: 0,
+        };
+        ModelCache[key] = { template };
+        if (window.AssetLoader) AssetLoader.tick();
+        resolve();
+      },
+      undefined,
+      (err) => {
+        console.warn('[CityModels] FAILED to load model "%s" (%s) — using placeholder box.', key, entry.file, err);
+        ModelCache[key] = { failed: true };
+        if (window.AssetLoader) AssetLoader.tick();
+        resolve();
+      }
+    );
+  });
+}
+
+/**
+ * Kicks off loading every GLB + color atlas exactly once. Safe to call
+ * multiple times (returns the same in-flight/completed promise). Does NOT
+ * need to be awaited before the game starts — AssetRegistry.create() falls
+ * back to placeholder boxes for anything still loading, and already-spawned
+ * scenery gets swapped for the real model the next time it's recycled.
+ */
+CityModels.init = function () {
+  if (CityModels._loadPromise) return CityModels._loadPromise;
+
+  if (window.AssetLoader) AssetLoader.add(Object.keys(CITY_MODEL_MANIFEST).length + 3);
+
+  const gltfLoader = new THREE.GLTFLoader();
+  const textureLoader = new THREE.TextureLoader();
+
+  const modelPromises = Object.keys(CITY_MODEL_MANIFEST).map((key) =>
+    loadOneModel(gltfLoader, key, CITY_MODEL_MANIFEST[key])
+  );
+
+  const texturePromises = [
+    loadAtlasTexture(textureLoader, 'colormap.png').then((t) => { CityModels.textures.colormap = t; }),
+    loadAtlasTexture(textureLoader, 'variation-a.png').then((t) => { CityModels.textures.variationA = t; }),
+    loadAtlasTexture(textureLoader, 'variation-b.png').then((t) => { CityModels.textures.variationB = t; }),
+  ];
+
+  CityModels._loadPromise = Promise.all([...modelPromises, ...texturePromises]).then(() => {
+    CityModels.ready = true;
+    console.log('[CityModels] all %d models + 3 color atlases attempted.', Object.keys(CITY_MODEL_MANIFEST).length);
+  });
+
+  return CityModels._loadPromise;
+};
+
+CityModels.init();
+
+================================================================================
+FILE: trafficVehicles.js
+================================================================================
+/* ============================================================================
+   TRAFFICVEHICLES.JS — loads & caches the Kenney "Car Kit" GLB pack (CC0) and
+   registers the city-appropriate subset into the existing AssetRegistry.
+   ----------------------------------------------------------------------------
+   This module OWNS every vehicle that appears as traffic. The old procedural
+   car/truck/bus primitives are gone; the obstacle generator asks this module
+   which vehicle to spawn next and then goes through AssetRegistry like it does
+   for every other asset.
+
+   Deliberately excluded from the pack (never loaded, never referenced):
+     go-karts (kart-*), race cars (race, race-future), farm vehicles
+     (tractor*), generic props (box, cone, cone-flat), all debris-* wreckage
+     and all standalone wheel-* models. Only intact city traffic ships here.
+
+   Pipeline mirrors cityModels.js:
+     1. WHITELIST maps key -> file + spawn weight + a rough fallback footprint
+        used only if that file fails to load.
+     2. init() runs one GLTFLoader.load() per entry, ONCE, at startup. The pack
+        bakes its materials against a shared Textures/colormap.png sitting
+        beside the GLBs, so the atlas resolves through the glTF's own relative
+        URI — there is no separate texture load here.
+     3. Each parsed scene is cached as a template; spawning clones the cached
+        template (assets.js AssetRegistry.create) rather than re-parsing.
+     4. Real bounds are measured with Box3 on load and written back as that
+        key's footprint, so collision and lane-fit spacing use each vehicle's
+        actual size — a firetruck is not a sedan.
+     5. A model that fails to load is dropped from the random-selection pool
+        for the session with one named console.warn.
+============================================================================ */
+
+const TrafficVehicles = {
+  ready: false,
+  _loadPromise: null,
+  _pool: [],     // keys currently eligible for random selection
+  _lastPicked: null,
+};
+
+const VEHICLE_BASE_PATH = 'assets/vehicles/';
+
+// ---------------------------------------------------------------------------
+// SPAWN WEIGHTS — tune traffic mix here. Everyday city cars dominate; the
+// special-purpose vehicles are seasoning, not the meal.
+// ---------------------------------------------------------------------------
+const VEHICLE_WEIGHTS = {
+  // common commuter traffic
+  car_sedan: 10,
+  car_suv: 9,
+  car_taxi: 8,
+  car_hatchback_sports: 8,
+  car_van: 7,
+  // less common, still ordinary
+  car_sedan_sports: 5,
+  car_suv_luxury: 5,
+  car_delivery: 5,
+  car_delivery_flat: 4,
+  car_truck: 4,
+  car_truck_flat: 3,
+  // special-purpose — sparing, for visual interest
+  car_police: 2,
+  car_ambulance: 1.5,
+  car_garbage_truck: 1.5,
+  car_firetruck: 1,
+};
+
+// key -> { file, footprint (fallback guess only; overwritten by measured size) }
+const VEHICLE_MANIFEST = {
+  car_sedan: { file: 'sedan.glb', footprint: { width: 2.0, height: 1.6, depth: 4.2, yBase: 0 } },
+  car_sedan_sports: { file: 'sedan-sports.glb', footprint: { width: 2.0, height: 1.5, depth: 4.2, yBase: 0 } },
+  car_hatchback_sports: { file: 'hatchback-sports.glb', footprint: { width: 2.0, height: 1.6, depth: 3.8, yBase: 0 } },
+  car_suv: { file: 'suv.glb', footprint: { width: 2.0, height: 1.9, depth: 4.4, yBase: 0 } },
+  car_suv_luxury: { file: 'suv-luxury.glb', footprint: { width: 2.0, height: 1.9, depth: 4.6, yBase: 0 } },
+  car_taxi: { file: 'taxi.glb', footprint: { width: 2.0, height: 1.7, depth: 4.2, yBase: 0 } },
+  car_van: { file: 'van.glb', footprint: { width: 2.0, height: 2.1, depth: 4.4, yBase: 0 } },
+  car_delivery: { file: 'delivery.glb', footprint: { width: 2.0, height: 2.2, depth: 4.8, yBase: 0 } },
+  car_delivery_flat: { file: 'delivery-flat.glb', footprint: { width: 2.0, height: 2.2, depth: 4.8, yBase: 0 } },
+  car_truck: { file: 'truck.glb', footprint: { width: 2.1, height: 2.6, depth: 5.6, yBase: 0 } },
+  car_truck_flat: { file: 'truck-flat.glb', footprint: { width: 2.1, height: 2.6, depth: 5.6, yBase: 0 } },
+  car_police: { file: 'police.glb', footprint: { width: 2.0, height: 1.7, depth: 4.2, yBase: 0 } },
+  car_ambulance: { file: 'ambulance.glb', footprint: { width: 2.1, height: 2.4, depth: 5.0, yBase: 0 } },
+  car_firetruck: { file: 'firetruck.glb', footprint: { width: 2.1, height: 2.6, depth: 5.8, yBase: 0 } },
+  car_garbage_truck: { file: 'garbage-truck.glb', footprint: { width: 2.1, height: 2.6, depth: 5.8, yBase: 0 } },
+};
+
+TrafficVehicles.KEYS = Object.keys(VEHICLE_MANIFEST);
+
+// ---------------------------------------------------------------------------
+// FITTING — the pack is authored at its own scale, and a lane is only so wide.
+// ---------------------------------------------------------------------------
+// One shared multiplier is applied to every vehicle so the size differences
+// BETWEEN them survive (a firetruck stays visibly bigger than a hatchback);
+// it is derived at load time from the widest vehicle so that even the largest
+// fits its lane. Individual models are never rescaled independently.
+// Raising this scales every vehicle up together. The hard ceiling is set by
+// the player still fitting through the open lane of a pileup: lanes are 2.2
+// apart and the runner is 0.72 wide, so anything past 2*(2.2 - 0.36) = 3.68
+// would clip someone running the open lane dead centre. 3.0 keeps 0.34 of
+// clearance on each side of them, and puts a sedan at ~2.6x the runner's
+// height in length — the real-world car-to-person ratio, which is what the
+// smaller settings were reading wrong.
+const LANE_FIT_WIDTH = 3.0;    // widest permitted vehicle width, pre-TRACK_SCALE
+// Vehicles are impassable by design: a lane change is the only way past one.
+// Their COLLISION height is therefore floored above the jump apex even though
+// their width/depth/visual height are the measured values. Matching collision
+// to the real roof would make a sedan a lower hurdle than a barrier.
+const VEHICLE_BLOCK_HEIGHT = 3.6;
+// The measured Box3 is an exact fit around the mesh, but that reads as an
+// overly generous hitbox in play — a graze past a bumper or side mirror
+// shouldn't count as a full hit. Shrinks the COLLISION footprint only
+// (width/depth); the rendered model is untouched, so cars look the same
+// size, they just have to actually reach the runner to hit them. Height is
+// NOT included here — it stays governed by VEHICLE_BLOCK_HEIGHT, a gameplay
+// floor (vehicles must never be jumpable), not a feel tweak.
+const HITBOX_SCALE_FACTOR = 0.8;
+// Purely cosmetic multiplier on top of the lane-fit baseline above — applied
+// ONLY to the rendered mesh (see fitLoadedVehicles below), never folded into
+// the footprint HITBOX_SCALE_FACTOR shrinks. This is what makes a car look
+// bigger without making it any harder (or easier) to dodge: the collision
+// math never reads mesh.scale, only the stored footprint, so this constant
+// can move independently of hitbox fairness. Tune freely.
+const CAR_VISUAL_SCALE = 1.15 * 0.75 * 0.88; // = 0.759 — still reading a touch large at 0.8625; another ~12% off
+// Heading, in radians, applied to every template. The pack's vehicles are
+// authored nose-along-Z; PI turns them to face back down the track at the
+// oncoming runner. Set to 0 to have traffic face away instead.
+const VEHICLE_FACING_Y = Math.PI;
+
+// Register every whitelisted entry immediately as type:"model" so the obstacle
+// generator can reference these keys before the GLBs have finished parsing —
+// AssetRegistry.create() hands out same-footprint placeholder boxes until then.
+TrafficVehicles.KEYS.forEach((key) => {
+  AssetRegistry[key] = {
+    type: 'model',
+    path: VEHICLE_BASE_PATH + VEHICLE_MANIFEST[key].file,
+    footprint: VEHICLE_MANIFEST[key].footprint,
+  };
+});
+
+// Everything starts eligible; failures are removed as they come in, so traffic
+// keeps generating from whatever subset loaded.
+TrafficVehicles._pool = TrafficVehicles.KEYS.slice();
+
+/**
+ * Weighted-random vehicle key. `avoidKey` (pass the previous pick) is skipped
+ * where possible so a pileup doesn't stack two identical models back-to-back;
+ * if it's the only thing left, it is returned rather than failing.
+ */
+TrafficVehicles.pick = function (avoidKey) {
+  const pool = TrafficVehicles._pool.length ? TrafficVehicles._pool : TrafficVehicles.KEYS;
+  let candidates = pool;
+  if (avoidKey && pool.length > 1) {
+    candidates = pool.filter((k) => k !== avoidKey);
+  }
+
+  let total = 0;
+  for (const k of candidates) total += VEHICLE_WEIGHTS[k] || 1;
+  let roll = Math.random() * total;
+  for (const k of candidates) {
+    roll -= VEHICLE_WEIGHTS[k] || 1;
+    if (roll <= 0) {
+      TrafficVehicles._lastPicked = k;
+      return k;
+    }
+  }
+  const last = candidates[candidates.length - 1];
+  TrafficVehicles._lastPicked = last;
+  return last;
+};
+
+function measure(object) {
+  const box = new THREE.Box3().setFromObject(object);
+  return { box, size: box.getSize(new THREE.Vector3()), center: box.getCenter(new THREE.Vector3()) };
+}
+
+function loadOneVehicle(loader, key, entry) {
+  return new Promise((resolve) => {
+    loader.load(
+      VEHICLE_BASE_PATH + entry.file,
+      (gltf) => {
+        const inner = gltf.scene;
+
+        // Orient first: a vehicle whose long axis lies along X is authored
+        // side-on, and has to be turned before anything is measured or the
+        // footprint would come out with width and depth swapped.
+        let pre = measure(inner);
+        if (pre.size.x > pre.size.z) inner.rotation.y += Math.PI / 2;
+        inner.rotation.y += VEHICLE_FACING_Y;
+        inner.updateMatrixWorld(true);
+
+        // NORMALIZE THE PIVOT, same contract as the city models: centered in
+        // x/z, wheels sitting exactly on y=0, so lane placement is just
+        // "position.x = lane centre".
+        const m = measure(inner);
+        const template = new THREE.Group();
+        inner.position.set(-m.center.x, -m.box.min.y, -m.center.z);
+        template.add(inner);
+
+        console.log(
+          '[TrafficVehicles] loaded "%s" — raw size %s x %s x %s',
+          key, m.size.x.toFixed(2), m.size.y.toFixed(2), m.size.z.toFixed(2)
+        );
+        ModelCache[key] = { template, rawSize: m.size.clone() };
+        if (window.AssetLoader) AssetLoader.tick();
+        resolve();
+      },
+      undefined,
+      (err) => {
+        console.warn(
+          '[TrafficVehicles] FAILED to load "%s" (%s) — dropping it from the traffic pool for this session.',
+          key, entry.file, err
+        );
+        ModelCache[key] = { failed: true };
+        TrafficVehicles._pool = TrafficVehicles._pool.filter((k) => k !== key);
+        if (window.AssetLoader) AssetLoader.tick();
+        resolve();
+      }
+    );
+  });
+}
+
+/**
+ * Applies the shared fit multiplier and writes each vehicle's real measured
+ * footprint into the registry. Runs once, after every load has settled, since
+ * the multiplier depends on the widest model in the set.
+ *
+ * `fit` alone is the FAIR baseline every collision number is built from — the
+ * one shared multiplier (same for every vehicle) that keeps the widest one
+ * inside the LANE_FIT_WIDTH ceiling, so the player can still fit through a
+ * pileup's open lane, while each vehicle keeps its own raw size relative to
+ * the others (a firetruck stays visibly bigger than a hatchback).
+ * `fit * CAR_VISUAL_SCALE` is a SEPARATE number, stored as
+ * AssetRegistry[key].meshScaleMultiplier — read only by addObstacle (game.js)
+ * when it sets the SPAWNED mesh's scale, never by anything in this file. The
+ * footprint below is computed from `fit` alone, on purpose: that split is
+ * what lets a car be told to look bigger without the hitbox ever hearing
+ * about it.
+ */
+function fitLoadedVehicles() {
+  let widest = 0;
+  TrafficVehicles.KEYS.forEach((key) => {
+    const cached = ModelCache[key];
+    if (cached && cached.rawSize) widest = Math.max(widest, cached.rawSize.x);
+  });
+  if (widest <= 0) return;
+
+  const fit = LANE_FIT_WIDTH / widest;
+  TrafficVehicles.fitScale = fit;
+
+  TrafficVehicles.KEYS.forEach((key) => {
+    const cached = ModelCache[key];
+    if (!cached || !cached.rawSize) return;
+    AssetRegistry[key].meshScaleMultiplier = fit * CAR_VISUAL_SCALE;
+    const s = cached.rawSize;
+    AssetRegistry[key].footprint = {
+      width: s.x * fit * HITBOX_SCALE_FACTOR,
+      depth: s.z * fit * HITBOX_SCALE_FACTOR,
+      // measured height/width/depth kept for reference (visualWidth is also
+      // read by the pileup lateral-spacing logic in game.js, since THAT is a
+      // purely visual placement concern, deliberately separate from the
+      // collision footprint above) — never fed into collision math.
+      visualHeight: s.y * fit * CAR_VISUAL_SCALE,
+      visualWidth: s.x * fit * CAR_VISUAL_SCALE,
+      visualDepth: s.z * fit * CAR_VISUAL_SCALE,
+      height: Math.max(s.y * fit * HITBOX_SCALE_FACTOR, VEHICLE_BLOCK_HEIGHT),
+      yBase: 0,
+    };
+  });
+
+  console.log(
+    '[TrafficVehicles] fit scale %s (widest raw width %s) applied to %d vehicles.',
+    fit.toFixed(3), widest.toFixed(2), TrafficVehicles._pool.length
+  );
+}
+
+/**
+ * Loads and caches every whitelisted vehicle exactly once. Safe to call more
+ * than once. Does not need awaiting — the generator spawns placeholder boxes
+ * of the right footprint until the real models land.
+ */
+TrafficVehicles.init = function () {
+  if (TrafficVehicles._loadPromise) return TrafficVehicles._loadPromise;
+
+  if (window.AssetLoader) AssetLoader.add(TrafficVehicles.KEYS.length);
+
+  const loader = new THREE.GLTFLoader();
+  const jobs = TrafficVehicles.KEYS.map((key) => loadOneVehicle(loader, key, VEHICLE_MANIFEST[key]));
+
+  TrafficVehicles._loadPromise = Promise.all(jobs).then(() => {
+    fitLoadedVehicles();
+    TrafficVehicles.ready = true;
+    console.log(
+      '[TrafficVehicles] %d/%d city vehicles available.',
+      TrafficVehicles._pool.length, TrafficVehicles.KEYS.length
+    );
+  });
+
+  return TrafficVehicles._loadPromise;
+};
+
+TrafficVehicles.init();
+
+================================================================================
+FILE: character.js
+================================================================================
+/* ============================================================================
+   CHARACTER.JS — the player character: a Mixamo rig (Ch09_nonPBR.fbx) driven
+   by three separately-supplied Mixamo animation files.
+
+   This module fully replaces the earlier Kenney character implementation.
+   ----------------------------------------------------------------------------
+   Assets:
+     assets/character/Ch09_nonPBR.fbx        rigged/skinned mesh, textures
+                                             EMBEDDED in the FBX (diffuse,
+                                             normal, specular, glossiness).
+                                             Also carries a baked "Take 001"
+                                             reference take that is discarded.
+     assets/character/animations/
+        Fast_Run.fbx  Jump.fbx  Quick_Roll_To_Run.fbx
+                                             one clip each, in .animations[0].
+                                             Quick_Roll_To_Run is a Mixamo
+                                             "with skin" export, so it also
+                                             carries a mesh + textures — only
+                                             its clip is taken, the rest is
+                                             never added to the scene.
+
+   Two wrinkles this module handles:
+
+   1. BONE NAMESPACE MISMATCH. The character exports its skeleton as
+      `mixamorig6:Hips`, while the animation files use plain `mixamorig:Hips`.
+      Same skeleton, same bone names after the colon — only the namespace
+      differs. So rather than a hand-written bone map, each clip's track names
+      are normalised (everything up to and including the first colon is
+      stripped) and re-pointed at the character's real node names. Anything
+      that still fails to resolve is logged rather than silently dropped.
+
+   2. ROOT MOTION. Mixamo clips translate the hips through the world. The game
+      moves the world past a stationary player, so the X/Z channels of the hip
+      position track are flattened to their first frame — the character
+      animates in place. Y is deliberately KEPT so the jump's vertical arc and
+      the roll's dip still read.
+============================================================================ */
+
+const CHARACTER_BASE = 'assets/character/';
+const MODEL_FILE = CHARACTER_BASE + 'Ch09_nonPBR.fbx';
+const ANIM_FILES = {
+  run: CHARACTER_BASE + 'animations/Fast_Run.fbx',
+  jump: CHARACTER_BASE + 'animations/Jump.fbx',
+  roll: CHARACTER_BASE + 'animations/Quick_Roll_To_Run.fbx',
+};
+
+const FADE = 0.15;             // crossfade between actions (seconds)
+const ONCE_ACTIONS = { jump: true, roll: true }; // play once + clamp
+
+const Character = {
+  root: new THREE.Group(),     // attach THIS to the player rig
+  ready: false,
+  usingFallback: true,
+  mixer: null,
+  actions: {},                 // { run, jump, roll }
+  current: null,
+
+  _model: null,
+  _loadPromise: null,
+};
+
+/** True once the real rigged model is in place (i.e. not the box fallback). */
+Character.isActive = function () {
+  return Character.ready && !Character.usingFallback;
+};
+
+// ---------------------------------------------------------------------------
+// LOADING HELPERS
+// ---------------------------------------------------------------------------
+function loadFBX(url, label) {
+  return new Promise((resolve) => {
+    new THREE.FBXLoader().load(
+      url,
+      (obj) => {
+        if (window.AssetLoader) AssetLoader.tick();
+        resolve(obj);
+      },
+      undefined,
+      (err) => {
+        console.warn('[Character] FAILED to load %s (%s)', label, url, err);
+        if (window.AssetLoader) AssetLoader.tick();
+        resolve(null);
+      }
+    );
+  });
+}
+
+/**
+ * Reduces a bone name to its namespace-free form so the character's skeleton
+ * and the animation clips can be matched:
+ *   `mixamorig6:LeftArm` -> `LeftArm`     (raw FBX form)
+ *   `mixamorig6LeftArm`  -> `LeftArm`     (after FBXLoader sanitisation)
+ *
+ * The second form is the one that actually reaches us: three's FBXLoader runs
+ * node names through PropertyBinding.sanitizeNodeName, which strips ':' —
+ * so by load time the character reads `mixamorig6Hips` and the clips read
+ * `mixamorigHips`, and a plain split-on-colon would match nothing at all.
+ */
+function stripNamespace(name) {
+  const colon = name.indexOf(':');
+  if (colon !== -1) return name.slice(colon + 1);
+  const m = /^mixamorig\d*(.+)$/i.exec(name);
+  return m ? m[1] : name;
+}
+
+/**
+ * Re-points a clip's tracks at the character's actual node names by matching
+ * on namespace-stripped names. Returns the number of tracks that could not be
+ * resolved (those are dropped so the mixer doesn't throw on them).
+ */
+function retargetClip(clipName, clip, nodeNamesByStripped) {
+  const unresolved = [];
+  clip.tracks = clip.tracks.filter((track) => {
+    const parsed = THREE.PropertyBinding.parseTrackName(track.name);
+    const actual = nodeNamesByStripped.get(stripNamespace(parsed.nodeName));
+    if (!actual) { unresolved.push(parsed.nodeName); return false; }
+    // keep the ".position"/".quaternion" suffix, swap only the node portion
+    track.name = track.name.startsWith(parsed.nodeName)
+      ? actual + track.name.slice(parsed.nodeName.length)
+      : actual + '.' + parsed.propertyName;
+    return true;
+  });
+
+  if (unresolved.length) {
+    const unique = Array.from(new Set(unresolved));
+    console.warn(
+      '[Character] clip "%s": %d track(s) had no matching bone after namespace ' +
+      'normalisation and were dropped: %s',
+      clipName, unique.length, unique.slice(0, 8).join(', ')
+    );
+  }
+  return unresolved.length;
+}
+
+/**
+ * Flattens the hips' X/Z translation so the character runs in place.
+ * Y is preserved — the jump arc and the roll's crouch live on that channel.
+ */
+function stripRootMotion(clip) {
+  let stripped = 0;
+  clip.tracks.forEach((track) => {
+    const parsed = THREE.PropertyBinding.parseTrackName(track.name);
+    if (parsed.propertyName !== 'position') return;
+    if (!/hips|^root$/i.test(stripNamespace(parsed.nodeName))) return;
+
+    const v = track.values;
+    const x0 = v[0];
+    const z0 = v[2];
+    for (let i = 0; i < v.length; i += 3) {
+      v[i] = x0;       // X pinned to first frame
+      v[i + 2] = z0;   // Z pinned to first frame
+      // v[i + 1] (Y) left untouched on purpose
+    }
+    stripped++;
+  });
+  return stripped;
+}
+
+/**
+ * The FBX ships a specular/glossiness (non-PBR) material set, which doesn't
+ * map onto MeshStandardMaterial's metalness/roughness model. MeshPhongMaterial
+ * is the closer match, so each material is rebuilt as Phong with the embedded
+ * maps wired to their matching slots.
+ *
+ * NOTE: three r128 requires `skinning: true` on any material used by a
+ * SkinnedMesh. A freshly-built material without it renders frozen in bind
+ * pose, so it is set explicitly here.
+ */
+function convertToPhong(model) {
+  const summary = { converted: 0, withDiffuse: 0, withNormal: 0, withSpecular: 0 };
+
+  model.traverse((node) => {
+    if (!node.isMesh || !node.material) return;
+    const mats = Array.isArray(node.material) ? node.material : [node.material];
+
+    const rebuilt = mats.map((src) => {
+      if (src.isMeshPhongMaterial) {
+        // already the workflow we want — just make sure it can skin
+        src.skinning = true;
+        if (src.map) summary.withDiffuse++;
+        if (src.normalMap) summary.withNormal++;
+        if (src.specularMap) summary.withSpecular++;
+        // glossiness -> shininess (source gloss maps read as fairly matte skin/cloth)
+        if (!src.shininess || src.shininess > 60) src.shininess = 18;
+        src.needsUpdate = true;
+        summary.converted++;
+        return src;
+      }
+
+      const phong = new THREE.MeshPhongMaterial({
+        name: src.name,
+        color: src.color ? src.color.clone() : new THREE.Color(0xffffff),
+        map: src.map || null,
+        normalMap: src.normalMap || null,
+        // spec/gloss: the specular map drives highlight colour directly
+        specularMap: src.specularMap || src.metalnessMap || null,
+        // glossiness ~= 1 - roughness, remapped into Phong's shininess range
+        shininess: src.roughness !== undefined ? (1 - src.roughness) * 60 : 18,
+        specular: new THREE.Color(0x222222),
+        skinning: true,
+        transparent: src.transparent,
+        side: src.side,
+      });
+      if (phong.map) summary.withDiffuse++;
+      if (phong.normalMap) summary.withNormal++;
+      if (phong.specularMap) summary.withSpecular++;
+      summary.converted++;
+      return phong;
+    });
+
+    node.material = Array.isArray(node.material) ? rebuilt : rebuilt[0];
+  });
+
+  return summary;
+}
+
+/**
+ * Uniformly scales the rig so its height matches the player footprint, centred
+ * on x/z with feet on y=0. Derived from a measured Box3 — Mixamo FBX units are
+ * centimetres, but that is confirmed rather than assumed.
+ */
+function normalize(model, targetHeight) {
+  const box = new THREE.Box3().setFromObject(model);
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const s = size.y > 0 ? targetHeight / size.y : 1;
+  model.scale.setScalar(s);
+  model.position.set(-center.x * s, -box.min.y * s, -center.z * s);
+  return { size, scale: s };
+}
+
+// ---------------------------------------------------------------------------
+// INIT
+// ---------------------------------------------------------------------------
+Character.init = function (opts) {
+  if (Character._loadPromise) return Character._loadPromise;
+  const targetHeight = (opts && opts.targetHeight) || 1.85;
+  const facingY = (opts && opts.facingY !== undefined) ? opts.facingY : Math.PI;
+
+  if (window.AssetLoader) AssetLoader.add(4);
+
+  Character._loadPromise = Promise.all([
+    loadFBX(MODEL_FILE, 'character Ch09_nonPBR.fbx'),
+    loadFBX(ANIM_FILES.run, 'run animation (Fast_Run.fbx)'),
+    loadFBX(ANIM_FILES.jump, 'jump animation (Jump.fbx)'),
+    loadFBX(ANIM_FILES.roll, 'roll animation (Quick_Roll_To_Run.fbx)'),
+  ]).then(([model, runFbx, jumpFbx, rollFbx]) => {
+    if (!model) {
+      console.warn('[Character] character model missing — keeping placeholder character.');
+      Character.ready = true;
+      Character.usingFallback = true;
+      return Character;
+    }
+
+    // The model's own baked take is Mixamo's reference pose, not gameplay —
+    // drop it so it can never be bound to the mixer.
+    const discarded = (model.animations && model.animations.length) || 0;
+    model.animations = [];
+
+    const mats = convertToPhong(model);
+    const info = normalize(model, targetHeight);
+    model.traverse((n) => { if (n.isMesh) n.frustumCulled = false; });
+
+    Character._model = model;
+    Character.root.rotation.y = facingY;
+    Character.root.add(model);
+
+    // ---- one lookup of stripped-name -> real node name, built once ----
+    const nodeNamesByStripped = new Map();
+    model.traverse((n) => {
+      if (n.name) nodeNamesByStripped.set(stripNamespace(n.name), n.name);
+    });
+
+    Character.mixer = new THREE.AnimationMixer(model);
+
+    const sources = { run: runFbx, jump: jumpFbx, roll: rollFbx };
+    let bound = 0;
+    Object.keys(sources).forEach((name) => {
+      const fbx = sources[name];
+      const clip = fbx && fbx.animations && fbx.animations[0];
+      if (!clip) {
+        console.warn('[Character] no AnimationClip in "%s" file — action unavailable.', name);
+        return;
+      }
+
+      const unresolved = retargetClip(name, clip, nodeNamesByStripped);
+      const rootTracks = stripRootMotion(clip);
+
+      const action = Character.mixer.clipAction(clip);
+      if (ONCE_ACTIONS[name]) {
+        action.setLoop(THREE.LoopOnce, 1);
+        action.clampWhenFinished = true;
+      } else {
+        action.setLoop(THREE.LoopRepeat, Infinity);
+      }
+      Character.actions[name] = action;
+      bound++;
+
+      console.log(
+        '[Character]   %s -> "%s" %ss, %d tracks, %d root-motion track(s) flattened%s',
+        name, clip.name, clip.duration.toFixed(3), clip.tracks.length, rootTracks,
+        unresolved ? ', ' + unresolved + ' unresolved' : ''
+      );
+    });
+
+    if (!bound) {
+      console.warn('[Character] no animation clips bound — keeping placeholder character.');
+      Character.root.remove(model);
+      Character.ready = true;
+      Character.usingFallback = true;
+      return Character;
+    }
+
+    console.log(
+      '[Character] Ch09_nonPBR ready — measured %s x %s x %s, scaled x%s to %su tall; ' +
+      '%d material(s) -> Phong (diffuse %d / normal %d / specular %d); ' +
+      '%d embedded take(s) discarded; %d/3 actions bound.',
+      info.size.x.toFixed(1), info.size.y.toFixed(1), info.size.z.toFixed(1),
+      info.scale.toFixed(5), targetHeight,
+      mats.converted, mats.withDiffuse, mats.withNormal, mats.withSpecular,
+      discarded, bound
+    );
+
+    Character.ready = true;
+    Character.usingFallback = false;
+    Character.playRun();
+    return Character;
+  });
+
+  return Character._loadPromise;
+};
+
+// ---------------------------------------------------------------------------
+// NAMED PLAY FUNCTIONS — the only surface the player state machine touches
+// ---------------------------------------------------------------------------
+/**
+ * Crossfades to `name`, and is IDEMPOTENT: the player state machine calls
+ * these every frame for as long as a state lasts, so re-requesting the action
+ * that is already playing must be a no-op. (Resetting here instead would peg
+ * the clip to frame 0 on every tick — the animation would look frozen.)
+ * A fresh play-from-the-start happens naturally on a real state change, via
+ * the reset() below.
+ */
+function fadeTo(name) {
+  if (!Character.isActive()) return;
+  const next = Character.actions[name];
+  if (!next) return;
+
+  if (Character.current === name) return;
+
+  const prev = Character.actions[Character.current];
+  next.enabled = true;
+  next.setEffectiveWeight(1);
+  next.reset().play();
+  if (prev && prev !== next) prev.crossFadeTo(next, FADE, false);
+
+  Character.current = name;
+}
+
+Character.playRun = function () { fadeTo('run'); };
+
+/**
+ * `windowSeconds` is the game's jump airtime. The source clip is ~2.2s but the
+ * player is only off the ground for ~0.7s, so without scaling only the crouch
+ * and take-off would ever be seen. Fitting the clip to the airtime makes the
+ * take-off/apex/landing beats line up with the actual arc.
+ */
+Character.playJump = function (windowSeconds) {
+  const action = Character.actions.jump;
+  if (action && windowSeconds > 0) {
+    action.timeScale = action.getClip().duration / windowSeconds;
+  }
+  fadeTo('jump');
+};
+
+/**
+ * `windowSeconds` is the gameplay duck window (slide vs roll differ). The clip
+ * is time-scaled to span exactly that window, so the character is still down
+ * when the collision box is still low, instead of clamping upright early.
+ */
+Character.playRoll = function (windowSeconds) {
+  const action = Character.actions.roll;
+  if (action && windowSeconds > 0) {
+    action.timeScale = action.getClip().duration / windowSeconds;
+  }
+  fadeTo('roll');
+};
+
+/** No idle clip ships with these assets — the run loop stands in on menus. */
+Character.playIdle = function () { fadeTo('run'); };
+
+// ---------------------------------------------------------------------------
+// PER-FRAME UPDATE
+// ---------------------------------------------------------------------------
+Character.update = function (dt) {
+  if (!Character.isActive()) return;
+  if (Character.mixer) Character.mixer.update(dt);
+};
+
+================================================================================
+FILE: config.example.js
+================================================================================
+/* ============================================================================
+   CONFIG.EXAMPLE.JS — template for config.js.
+
+   This project has no build step (no bundler, no package.json, no Node
+   tooling) — everything runs as plain <script> tags loaded straight by the
+   browser. That means there's no real process.env to read a .env file into,
+   which is the usual reason a project separates config from code. This file
+   plays that same role instead: copy it to config.js, fill in your actual
+   Supabase project's values, and config.js is what index.html actually
+   loads — keeping the real values out of the tracked source files, same
+   intent as a .env / .env.example pair in a Node project.
+
+   Where to find these values: Supabase dashboard -> Project Settings -> API.
+   SUPABASE_ANON_KEY is the public "anon" key, not the service_role key — the
+   anon key is DESIGNED to be shipped in client-side code; it's safe here
+   precisely because Row Level Security policies (not secrecy) are what
+   actually restrict what it can do.
+============================================================================ */
+window.GAME_CONFIG = {
+  SUPABASE_URL: 'YOUR_SUPABASE_PROJECT_URL_HERE',
+  SUPABASE_ANON_KEY: 'YOUR_SUPABASE_ANON_KEY_HERE',
+};
+
+================================================================================
+FILE: config.js
+================================================================================
+/* ========================================================================
+   CONFIG.JS — local configuration, loaded before supabaseClient.js.
+
+   See config.example.js for what these values mean and where to get them.
+   ACTION NEEDED: replace both placeholders below with your actual Supabase
+   project's values (dashboard -> Project Settings -> API), or score
+   submission stays safely disabled (see the warning supabaseClient.js logs
+   for a still-placeholder config).
+======================================================================== */
+window.GAME_CONFIG = {
+  SUPABASE_URL: 'https://ornjmnakoxjnjvvqqeho.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_RO20qsp65m4ozJ2R5udNQg__lbF9QzD'
+};
+================================================================================
+FILE: supabaseClient.js
+================================================================================
+/* ============================================================================
+   SUPABASECLIENT.JS — the one place the game talks to the `scores` table.
+   Loaded after config.js (for window.GAME_CONFIG) and the Supabase UMD CDN
+   script (for window.supabase), and before game.js, which calls
+   submitScore() from its existing game-over handler.
+============================================================================ */
+
+const SUPABASE_URL = (window.GAME_CONFIG && window.GAME_CONFIG.SUPABASE_URL) || '';
+const SUPABASE_ANON_KEY = (window.GAME_CONFIG && window.GAME_CONFIG.SUPABASE_ANON_KEY) || '';
+
+// NOTE: deliberately NOT named `supabase`. The Supabase UMD library loaded in
+// index.html declares that identifier itself at its own top level, and
+// classic <script> tags all share ONE global lexical scope for
+// let/const/class — a second `let supabase` anywhere collides with it. That
+// collision is a parse-time SyntaxError, which kills the ENTIRE file it's in
+// before a single line of it runs (this bit the previous attempt at this
+// integration: naming the client `supabase` silently broke all of game.js,
+// not just the leaderboard call).
+let gameSupabaseClient = null;
+if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_PROJECT_URL_HERE') {
+  console.warn('[Supabase] config.js still has placeholder values — score submission is disabled until SUPABASE_URL/SUPABASE_ANON_KEY are filled in (see config.example.js).');
+} else {
+  try {
+    gameSupabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } catch (err) {
+    console.error('[Supabase] client failed to initialize — score submission disabled, game unaffected.', err);
+  }
+}
+
+/**
+ * Fire-and-forget: inserts one row into `scores`. `created_at` is left out
+ * on purpose — the table defaults it. Never throws back into the caller; a
+ * failed submission (network error, RLS rejection, still-placeholder config,
+ * etc.) only logs a warning, since this must never block or crash the
+ * game-over flow that calls it. Returns true/false in case a future caller
+ * needs to know whether it actually landed; ordinary fire-and-forget callers
+ * are free to ignore the return value.
+ */
+async function submitScore(playerName, score) {
+  // TEMP DEBUG — confirms this function is actually being reached at all;
+  // an earlier attempt at this same integration silently no-op'd (placeholder
+  // config, or the page opened as file:// instead of served over http://),
+  // which read from the outside as "submitScore is broken" when it was never
+  // being called in a state that could succeed. Safe to remove once confirmed
+  // working against a real project, or leave — one line per submission.
+  console.log('[Supabase] submitScore called', playerName, score);
+  if (!gameSupabaseClient) return false; // not configured — see the warning logged above
+  try {
+    const { error } = await gameSupabaseClient.from('scores').insert([
+      { player_name: playerName, score },
+    ]);
+    if (error) { console.warn('[Supabase] submitScore failed:', error.message); return false; }
+    return true;
+  } catch (err) {
+    console.warn('[Supabase] submitScore failed:', err);
+    return false;
+  }
+}
+
+================================================================================
+FILE: game.js
+================================================================================
+/* ============================================================================
+   GAME.JS — scene setup, input, player state machine, track generation,
+   collision, scoring/UI. Everything that needs a mesh pulls it from
+   AssetRegistry / MeshPool (see assets.js) — no inline geometry here.
+============================================================================ */
+
+// ---------------------------------------------------------------------------
+// PLAYER IDENTITY — captured from the name field folded into the existing
+// start screen (see #username-input in index.html). `isGameStarted` tracks
+// whether a name has ever been submitted this session; it is NOT what gates
+// the render loop — Game.state (below) already does that job precisely,
+// including keeping the idle scene rendering behind the start/pause/game-over
+// overlays. A second hard gate on the animation loop would fight that and
+// blank the canvas instead.
+// ---------------------------------------------------------------------------
+let playerCurrentName = 'Player';
+let isGameStarted = false;
+
+// ---------------------------------------------------------------------------
+// CONSTANTS
+// ---------------------------------------------------------------------------
+// Uniform scale for everything the player interacts with — road, lanes,
+// character, obstacles, coins. Buildings deliberately stay unscaled, so
+// raising this genuinely widens the road and enlarges the runner RELATIVE
+// to the city rather than just zooming the whole scene.
+const TRACK_SCALE = 1.25;
+
+const LANES = [-2.2, 0, 2.2].map((x) => x * TRACK_SCALE);
+const ROAD_WIDTH = 8 * TRACK_SCALE;
+const SEGMENT_LENGTH = 30;
+const SEGMENTS_AHEAD = 11; // how many segments exist ahead of the player at once
+// A segment's contents span [origin - SEGMENT_LENGTH, origin], so the origin
+// must travel a full segment length PAST the camera before the segment is
+// safe to recycle — otherwise its far end is still on screen when it's
+// reused, which reads as scenery popping out of existence mid-view.
+// ---- chase camera framing ------------------------------------------------
+// Every number that shapes the shot lives here, in world units / degrees, so
+// the framing can be retuned without reading any of the rig logic below.
+// The rig is a parent Group that rides the player's z (and, subtly, x); the
+// camera is its child at a FIXED local height, back-offset and downward tilt,
+// so a jump or roll never moves the shot.
+const CAMERA = {
+  height: 6.5,        // above the road surface
+  distance: 9.0,      // behind the runner
+  tiltDeg: -16.1,     // downward pitch. Chosen with `fov` so the character's
+                      // mid-body lands ~45% of the way down the lower half of
+                      // frame, and the horizon stays inside the top of frame.
+  fov: 60,            // vertical FOV: all three lanes clearly separated at the
+                      // runner, converging naturally toward the vanishing point
+  referenceAspect: 16 / 9, // the aspect ratio this whole rig was tuned against
+  maxNarrowZoom: 1.9,      // cap on how far the narrow-screen dolly-back below can push
+  lateralFollow: 0.35, // fraction of the runner's x the rig drifts across
+  lateralLag: 5,       // how fast (per second) it catches up — deliberately soft
+  // A touch of pull-back and lift at speed, so fast running reads as fast.
+  // Heavily smoothed and tiny; this is framing, not shake.
+  speedPullback: 0.6,
+  speedRise: 0.25,
+  speedFovGain: 8,
+  speedSettle: 2,      // per-second smoothing on the three values above
+};
+// On a narrow/portrait screen, a fixed FOV keeps the same angular view but the
+// aspect ratio crops it down to a much narrower horizontal slice — the road
+// reads as "zoomed in", which is exactly what pushes mobile players to
+// pinch-zoom the whole page out instead (that just scales the HUD/canvas as a
+// bitmap and looks squashed/blurry, not fixed). Dollying the camera straight
+// back along its existing look direction widens the world-space slice visible
+// at the runner's depth with NO fov/tilt change, so there's no fisheye and no
+// page-level zoom needed — the shot is simply framed wider on narrow screens.
+function cameraNarrowZoom(aspect) {
+  if (aspect >= CAMERA.referenceAspect) return 1;
+  return Math.min(CAMERA.maxNarrowZoom, CAMERA.referenceAspect / aspect);
+}
+const RECYCLE_Z = SEGMENT_LENGTH + CAMERA.distance * CAMERA.maxNarrowZoom + 6;
+
+// Scaling gravity and jump speed together keeps JUMP_AIRTIME identical while
+// making the arc TRACK_SCALE times taller — so it still clears the (now
+// taller) barriers and every obstacle-spacing guarantee below still holds.
+const GRAVITY = -32 * TRACK_SCALE;
+// Apex = JUMP_SPEED^2 / (2*GRAVITY) = 2.33 units (pre-scale). Kept as low as
+// the obstacle set allows — a floatier arc reads as a double jump. It must
+// still clear the 1.8 tops of `barrier_low` and `barrier_high`, while staying
+// under the 3.6 of `barrier_gap` and the 3.6 collision tops of the vehicles,
+// all of which are impassable by jumping.
+const JUMP_SPEED = 12.2 * TRACK_SCALE;
+const SLIDE_DURATION = 1.0;  // a ground slide always lasts a full second
+const ROLL_DURATION = 0.55;  // shorter duck you recover into after an air dive
+// Downward kick applied when ducking mid-air — fast enough to read as a
+// "bullet drop" rather than just falling early.
+const DIVE_SPEED = -32 * TRACK_SCALE;
+const LANE_LERP_SPEED = 12;
+// Speeds scale with the track so the run still covers the same number of
+// lane-widths per second — the feel is unchanged, only the scale is.
+const BASE_SPEED = 11 * TRACK_SCALE;
+const MAX_SPEED = 26 * TRACK_SCALE;
+const SPEED_RAMP_PER_UNIT = 0.0035; // speed gained per unit distance travelled
+const DIFFICULTY_DISTANCE = 1600 * TRACK_SCALE; // reach full difficulty sooner
+
+// ---- scoring -------------------------------------------------------------
+// Distance does NOT score directly. It raises a multiplier, one level every
+// MULT_DISTANCE travelled, and the final score is coins x multiplier — so a
+// long run is only worth something if you actually picked coins up along it.
+const MULT_DISTANCE = 150 * TRACK_SCALE;
+const MULT_MAX = 25;
+
+// Total airtime of a jump — obstacle spacing uses this so the player is
+// always back on the ground before the next row arrives.
+const JUMP_AIRTIME = (2 * JUMP_SPEED) / -GRAVITY; // ~0.72s
+
+// Minimum time a vehicle-blocking row (pileup or mixed-with-a-vehicle) must
+// reserve before the next row, so a lane switch is always physically
+// completable — not just theoretically, if the player reacts instantly.
+// playerState.x approaches its target exponentially (see LANE_LERP_SPEED
+// above), so how long that takes to settle is INDEPENDENT of how many lanes
+// away the target is — crossing 2 lanes (the pileup worst case: 1 open lane
+// out of 3) settles in the same time as crossing 1, provided both inputs
+// land before the first one's target is reached. ln(100)/LANE_LERP_SPEED is
+// the time to close 99% of the remaining distance; LANE_SWITCH_REACTION_TIME
+// on top of that is the budget for the player to actually notice the row and
+// press the key(s) at all, which the lerp settling time alone doesn't cover.
+const LANE_SWITCH_REACTION_TIME = 0.25;
+const LANE_SWITCH_MIN_SECONDS = Math.log(100) / LANE_LERP_SPEED + LANE_SWITCH_REACTION_TIME; // ~0.63s
+
+// ---- city wall layout ----------------------------------------------------
+// Three contiguous rows of buildings per side. Each row's inner face starts
+// at `setback` and no building may exceed `maxWidth`, so rows can never
+// overlap each other or reach the road (road half-width is ROAD_WIDTH / 2).
+const CITY_ROWS = [
+  { setback: 6.4, maxWidth: 9, height: [7, 16], detail: 'full' },
+  { setback: 15.5, maxWidth: 11, height: [10, 24], detail: 'low' },
+  { setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low' },
+];
+
+// ---------------------------------------------------------------------------
+// RENDERER / SCENE / CAMERA
+// ---------------------------------------------------------------------------
+const canvas = document.getElementById('game-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x8fd3ff);
+scene.fog = new THREE.Fog(0x8fd3ff, 20, 78);
+
+// far plane sits just past the fog end so the dense city rows beyond it are
+// frustum-culled rather than drawn into solid fog
+const camera = new THREE.PerspectiveCamera(CAMERA.fov, window.innerWidth / window.innerHeight, 0.1, 130);
+
+// CAMERA RIG. `cameraRig` is the only thing that moves during play: it tracks
+// the runner's z (plus a subtle fraction of their x). The camera itself is
+// parked in the rig's local space and never re-aimed — no lookAt() anywhere in
+// the loop — which is what keeps the shot rock-steady through jumps and rolls.
+const cameraRig = new THREE.Group();
+cameraRig.add(camera);
+let cameraZoom = cameraNarrowZoom(window.innerWidth / window.innerHeight);
+camera.position.set(0, CAMERA.height * cameraZoom, CAMERA.distance * cameraZoom);
+camera.rotation.order = 'YXZ';
+camera.rotation.x = CAMERA.tiltDeg * Math.PI / 180;
+scene.add(cameraRig);
+
+// EXPOSURE: these intensities are tuned against `outputEncoding = sRGBEncoding`
+// (set on the renderer above). sRGB output lifts mid-tones hard, so the
+// pre-sRGB values of 0.95/0.9 pushed a combined ~1.85 through the encode and
+// clipped roughly a quarter of the frame to pure white — which read as the
+// building atlas textures looking bleached and detail-free. Keeping the total
+// near ~1.45 preserves the bright cartoony look without blowing the textures.
+const hemi = new THREE.HemisphereLight(0xffffff, 0x6b6b6b, 0.75);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff3d6, 0.7);
+sun.position.set(-6, 12, 6);
+scene.add(sun);
+
+function handleViewportResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  cameraZoom = cameraNarrowZoom(camera.aspect);
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+window.addEventListener('resize', handleViewportResize);
+// iOS Safari fires 'orientationchange' before innerWidth/innerHeight settle to
+// their new post-rotation values, and 'resize' doesn't reliably follow it on
+// every device — so re-run the same handler once next tick and again after
+// the rotation animation finishes, rather than relying on 'resize' alone.
+window.addEventListener('orientationchange', () => {
+  handleViewportResize();
+  setTimeout(handleViewportResize, 300);
+});
+
+// ---------------------------------------------------------------------------
+// STATIC GROUND (wide strip, doesn't need to scroll since it's featureless)
+// ---------------------------------------------------------------------------
+{
+  const roadGeo = new THREE.PlaneGeometry(ROAD_WIDTH, 400);
+  const road = new THREE.Mesh(roadGeo, Mat.road);
+  road.rotation.x = -Math.PI / 2;
+  road.position.set(0, 0, -150);
+  scene.add(road);
+
+  const sideGeo = new THREE.PlaneGeometry(40, 400);
+  const grassL = new THREE.Mesh(sideGeo, Mat.grass);
+  grassL.rotation.x = -Math.PI / 2;
+  grassL.position.set(-24, -0.02, -150);
+  scene.add(grassL);
+  const grassR = grassL.clone();
+  grassR.position.x = 24;
+  scene.add(grassR);
+
+  // Solid edge lines marking the road/shoulder boundary. Unlike the dashed
+  // lane dividers (which scroll with the segments to sell speed), these can
+  // be one continuous static strip the same length as the road plane itself
+  // — an edge line doesn't need to visibly move to read correctly.
+  const edgeGeo = new THREE.PlaneGeometry(0.16, 400);
+  const edgeL = new THREE.Mesh(edgeGeo, Mat.roadLine);
+  edgeL.rotation.x = -Math.PI / 2;
+  edgeL.position.set(-ROAD_WIDTH / 2 + 0.1, 0.012, -150);
+  scene.add(edgeL);
+  const edgeR = edgeL.clone();
+  edgeR.position.x = ROAD_WIDTH / 2 - 0.1;
+  scene.add(edgeR);
+}
+
+// ---------------------------------------------------------------------------
+// PLAYER
+// ---------------------------------------------------------------------------
+// `player` is the RIG: a bare container that owns position/lean/track-scale.
+// Its visual child is swappable — the procedural box character to start with,
+// replaced by the Mixamo Ch09 rig once character.js finishes loading.
+// Keeping them separate means the state machine below never cares which is in.
+const player = new THREE.Group();
+player.position.set(0, 0, 0);
+player.scale.setScalar(TRACK_SCALE);
+scene.add(player);
+
+const placeholderBody = AssetRegistry.create('player');
+player.add(placeholderBody);
+const playerParts = placeholderBody.userData.parts;
+
+// Swap in the real character when it lands (falls back silently if it fails).
+const characterLoadPromise = Character.init({ targetHeight: AssetRegistry.player.footprint.height }).then(() => {
+  if (Character.isActive()) {
+    player.remove(placeholderBody);
+    player.add(Character.root);
+  }
+});
+
+const playerState = {
+  lane: 1,
+  x: 0,
+  targetX: 0,
+  y: 0,
+  velY: 0,
+  prevX: 0,          // position at the start of the frame — collision sweeps
+  prevY: 0,          // from here so nothing can be crossed untested
+  isJumping: false,
+  isSliding: false,
+  slideTimer: 0,
+  isDiving: false,   // mid-air, slamming down after a duck input
+  isRolling: false,  // the tumble on landing from a dive
+  rollTimer: 0,
+  distance: 0,
+  runPhase: 0,
+  alive: true,
+};
+
+// Slide and roll both put the character low to the ground — the two states
+// that duck under a high beam and that coins should meet at waist height.
+function isLowProfile() {
+  return playerState.isSliding || playerState.isRolling;
+}
+
+function resetPlayer() {
+  playerState.lane = 1;
+  playerState.x = 0;
+  playerState.targetX = 0;
+  playerState.y = 0;
+  playerState.prevX = 0;
+  playerState.prevY = 0;
+  playerState.velY = 0;
+  playerState.isJumping = false;
+  playerState.isSliding = false;
+  playerState.slideTimer = 0;
+  playerState.isDiving = false;
+  playerState.isRolling = false;
+  playerState.rollTimer = 0;
+  playerState.distance = 0;
+  playerState.runPhase = 0;
+  playerState.alive = true;
+  player.position.set(0, 0, 0);
+  player.rotation.set(0, 0, 0);
+  player.scale.setScalar(TRACK_SCALE);
+}
+
+// Footprint of a track-scale asset (player, obstacle, coin). Buildings are
+// deliberately NOT run through this — they keep their own measured size.
+function trackFootprint(key) {
+  const f = AssetRegistry[key].footprint;
+  return {
+    width: f.width * TRACK_SCALE,
+    height: f.height * TRACK_SCALE,
+    depth: f.depth * TRACK_SCALE,
+    yBase: f.yBase * TRACK_SCALE,
+  };
+}
+
+// The player's box for this frame, SWEPT from where the body was at the start
+// of the frame. Vertical sweep is what matters most: a mid-air dive falls at
+// 40 u/s, which on a slow frame is 2 units — enough to pass clean through a
+// 1-unit-tall beam between samples and read on screen as running through it.
+function playerAABB() {
+  const fp = trackFootprint('player');
+  const height = isLowProfile() ? fp.height * 0.5 : fp.height;
+  const x0 = Math.min(playerState.x, playerState.prevX);
+  const x1 = Math.max(playerState.x, playerState.prevX);
+  const y0 = Math.min(playerState.y, playerState.prevY);
+  const y1 = Math.max(playerState.y, playerState.prevY);
+  return {
+    minX: x0 - fp.width / 2,
+    maxX: x1 + fp.width / 2,
+    minY: y0,
+    maxY: y1 + height,
+    minZ: -fp.depth / 2,
+    maxZ: fp.depth / 2,
+  };
+}
+
+function aabbIntersect(a, b) {
+  return a.minX < b.maxX && a.maxX > b.minX &&
+         a.minY < b.maxY && a.maxY > b.minY &&
+         a.minZ < b.maxZ && a.maxZ > b.minZ;
+}
+
+// ---------------------------------------------------------------------------
+// INPUT
+// ---------------------------------------------------------------------------
+function tryLaneChange(dir) {
+  if (!playerState.alive || Game.state !== 'playing') return;
+  const next = playerState.lane + dir;
+  if (next < 0 || next > 2) return;
+  playerState.lane = next;
+  playerState.targetX = LANES[next];
+}
+
+function tryJump() {
+  if (!playerState.alive || Game.state !== 'playing') return;
+  // jumping cancels a ground slide or roll so the controls stay responsive
+  if (playerState.isSliding) { playerState.isSliding = false; playerState.slideTimer = 0; }
+  if (playerState.isRolling) { playerState.isRolling = false; playerState.rollTimer = 0; }
+  if (!playerState.isJumping) {
+    playerState.isJumping = true;
+    playerState.velY = JUMP_SPEED;
+  }
+}
+
+function trySlide() {
+  if (!playerState.alive || Game.state !== 'playing') return;
+
+  // Mid-air: bullet down instead of sliding. The dive itself is just a hard
+  // downward velocity; the roll is entered on impact (see updatePlayer).
+  if (playerState.isJumping) {
+    if (!playerState.isDiving) {
+      playerState.isDiving = true;
+      playerState.velY = DIVE_SPEED;
+    }
+    return;
+  }
+
+  if (isLowProfile()) return; // already low — don't restart the timer
+  playerState.isSliding = true;
+  playerState.slideTimer = SLIDE_DURATION;
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'KeyP') { togglePause(); return; }
+  switch (e.code) {
+    case 'ArrowLeft': case 'KeyA': tryLaneChange(-1); break;
+    case 'ArrowRight': case 'KeyD': tryLaneChange(1); break;
+    case 'ArrowUp': case 'KeyW': case 'Space': tryJump(); e.preventDefault(); break;
+    case 'ArrowDown': case 'KeyS': trySlide(); break;
+  }
+  // Deliberately no "any key starts the run" fallback here — the only way to
+  // start is the Start button (see tryStartFromNameEntry below). Typing a
+  // name into #username-input dispatches keydown events too, and this used
+  // to treat every one of those keystrokes as "press any key to start,"
+  // launching the run before a name was even entered.
+});
+
+// Touch/swipe input lives in touchControls.js (loaded after this file), which
+// calls tryLaneChange/tryJump/trySlide directly — the same functions the
+// keydown handler above uses — so keyboard and touch stay two front-ends
+// over one action layer, never two parallel gameplay implementations.
+
+// ---------------------------------------------------------------------------
+// TRACK / SEGMENT GENERATION
+// ---------------------------------------------------------------------------
+const segments = [];
+let difficulty = 0; // 0..1 ramps with score
+let carryGap = 0;   // spacing owed by the previous segment to the next one
+
+function makeSegmentSlot() {
+  const group = new THREE.Group();
+  scene.add(group);
+  return { group, obstacles: [], coins: [], scenery: [] };
+}
+
+for (let i = 0; i < SEGMENTS_AHEAD; i++) segments.push(makeSegmentSlot());
+
+function clearSegment(seg) {
+  seg.obstacles.forEach((o) => MeshPool.release(o.mesh));
+  seg.coins.forEach((c) => MeshPool.release(c.mesh));
+  seg.scenery.forEach((s) => MeshPool.release(s));
+  seg.obstacles.length = 0;
+  seg.coins.length = 0;
+  seg.scenery.length = 0;
+}
+
+function addObstacle(seg, key, lane, localZ, footprintOverride) {
+  const mesh = MeshPool.acquire(key);
+  mesh.position.set(LANES[lane], 0, localZ);
+  // Absolute set, not a relative multiply: MeshPool hands back the SAME mesh
+  // instance across many acquire/release cycles as segments recycle all
+  // game long, so multiplying TRACK_SCALE onto whatever scale is already
+  // there would compound a little more every time that instance got reused
+  // (confirmed directly: it grew ~25% larger on every recycle in testing).
+  // AssetRegistry[key].meshScaleMultiplier is each asset's own EXTRA factor
+  // on top of TRACK_SCALE — 1 for plain primitives (barriers), or a vehicle's
+  // lane-fit-normalization x CAR_VISUAL_SCALE (see trafficVehicles.js) — so
+  // this always resets to the exact correct absolute scale regardless of
+  // whatever the mesh's scale happened to be from its previous use.
+  const extraScale = AssetRegistry[key].meshScaleMultiplier || 1;
+  mesh.scale.setScalar(TRACK_SCALE * extraScale);
+  seg.group.add(mesh);
+  const record = { mesh, key, lane, localZ, footprint: footprintOverride || trackFootprint(key) };
+  seg.obstacles.push(record);
+  return record;
+}
+
+// Small buffer kept between two vehicles' visual edges in the same row, so
+// adjacent ones read as clearly distinct rather than touching bumper-to-
+// bumper even at the moment they'd otherwise just barely clear each other.
+const PILEUP_VISUAL_GAP = 0.15;
+
+// Vehicles sit at FIXED lane-center X positions (LANES[lane]) as far as
+// collision is concerned — checkCollisions reads o.lane, never mesh.position.x
+// — so nudging a mesh sideways here is purely cosmetic and has zero effect on
+// hitboxes or dodgeability. That's what makes this safe: a lane is only
+// LANES[1]-LANES[0] wide, but CAR_VISUAL_SCALE can still render a vehicle
+// wider than that (trucks/vans especially), so two vehicles in ADJACENT
+// lanes in the same row can visually intersect even though their hitboxes
+// (computed independently, from HITBOX_SCALE_FACTOR) never do. A pileup/mixed
+// row always leaves at least one lane open, so at most 2 of the 3 lanes ever
+// hold a vehicle at once — meaning at most ONE adjacent pair needs checking,
+// never a vehicle sandwiched between two occupied neighbors.
+function spaceRowVehiclesVisually(rowVehicles) {
+  if (rowVehicles.length < 2) return;
+  rowVehicles.sort((a, b) => a.lane - b.lane);
+  for (let i = 0; i < rowVehicles.length - 1; i++) {
+    const a = rowVehicles[i];
+    const b = rowVehicles[i + 1];
+    if (b.lane - a.lane !== 1) continue; // not adjacent lanes — plenty of room regardless
+    const widthA = AssetRegistry[a.key].footprint.visualWidth * TRACK_SCALE;
+    const widthB = AssetRegistry[b.key].footprint.visualWidth * TRACK_SCALE;
+    const laneGap = LANES[b.lane] - LANES[a.lane];
+    const neededGap = (widthA + widthB) / 2 + PILEUP_VISUAL_GAP;
+    if (neededGap > laneGap) {
+      const shortfall = neededGap - laneGap;
+      a.mesh.position.x -= shortfall / 2;
+      b.mesh.position.x += shortfall / 2;
+    }
+  }
+}
+
+function addCoin(seg, lane, localZ, height) {
+  const mesh = MeshPool.acquire('coin');
+  const y = height * TRACK_SCALE;
+  mesh.position.set(LANES[lane], y, localZ);
+  mesh.scale.setScalar(TRACK_SCALE);
+  seg.group.add(mesh);
+  seg.coins.push({ mesh, lane, localZ, height: y, collected: false });
+}
+
+function addScenery(seg, key, x, localZ, scaleMul, rotY, variant, depthSquash) {
+  const mesh = MeshPool.acquire(key);
+  mesh.position.set(x, 0, localZ);
+  const s = scaleMul || 1;
+  mesh.scale.set(s, s, s * (depthSquash || 1));
+  mesh.rotation.y = rotY || 0;
+  if (variant) applyCityModelVariant(mesh, variant);
+  seg.group.add(mesh);
+  seg.scenery.push(mesh);
+}
+
+// Fills one row on one side with buildings packed edge-to-edge along z.
+// Each building advances the cursor by exactly its own scaled depth, so the
+// row reads as a solid city block with no gaps. The last building in a
+// segment is squashed on z alone (never on x/y, which would notch the wall)
+// so rows tile seamlessly across segment boundaries.
+function spawnCityRow(seg, side, row) {
+  const keys = row.detail === 'full' ? CityModels.FULL_BUILDING_KEYS : CityModels.LOW_BUILDING_KEYS;
+  if (!keys.length) return;
+
+  let z = 0;
+  while (z > -SEGMENT_LENGTH + 0.05) {
+    const key = randChoice(keys);
+    const fp = AssetRegistry[key].footprint;
+
+    // Scale to a target height, but clamp so a wide model can never grow
+    // past this row's maxWidth and spill into the row (or road) in front.
+    const targetH = row.height[0] + Math.random() * (row.height[1] - row.height[0]);
+    const s = Math.min(targetH / fp.height, row.maxWidth / fp.width);
+
+    const width = fp.width * s;
+    let depth = fp.depth * s;
+
+    const remaining = z + SEGMENT_LENGTH;
+    let squash = 1;
+    if (depth > remaining) { squash = remaining / depth; depth = remaining; }
+
+    // only 0 / 180 degree turns, so depth stays aligned to z and the row stays tight
+    const rotY = Math.random() < 0.5 ? 0 : Math.PI;
+    addScenery(seg, key, side * (row.setback + width / 2), z - depth / 2, s, rotY,
+               randChoice(CityModels.VARIANT_KEYS), squash);
+    z -= depth;
+  }
+}
+
+// The two divider lines sit exactly on the midpoints between adjacent lane
+// centres, so they visually separate lane 0|1 and 1|2 regardless of TRACK_SCALE.
+const LANE_DIVIDER_X = [(LANES[0] + LANES[1]) / 2, (LANES[1] + LANES[2]) / 2];
+const LANE_DASH_LENGTH = 1.6;
+const LANE_DASH_GAP = 1.6;
+const LANE_DASH_PERIOD = LANE_DASH_LENGTH + LANE_DASH_GAP;
+
+function spawnLaneLines(seg) {
+  for (const x of LANE_DIVIDER_X) {
+    for (let z = -LANE_DASH_PERIOD / 2; z > -SEGMENT_LENGTH; z -= LANE_DASH_PERIOD) {
+      addScenery(seg, 'lane_dash', x, z, 1);
+    }
+  }
+}
+
+function spawnScenery(seg) {
+  spawnLaneLines(seg);
+  for (const row of CITY_ROWS) {
+    spawnCityRow(seg, -1, row);
+    spawnCityRow(seg, 1, row);
+  }
+  // streetlights on the sidewalk strip between the road and the front row
+  for (let z = -2; z > -SEGMENT_LENGTH; z -= 11 + Math.random() * 5) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    // The lamp arm extends along +X in the model's own space, so it has to be
+    // turned to face the road centre: poles on the RIGHT (+x) need a 180deg
+    // flip, poles on the LEFT (-x) need none.
+    addScenery(seg, 'streetlight', side * (ROAD_WIDTH / 2 + 0.7), z, TRACK_SCALE, side < 0 ? 0 : Math.PI);
+  }
+}
+
+function spawnCoinLine(seg, lane, startLocalZ, count, height) {
+  for (let i = 0; i < count; i++) {
+    addCoin(seg, lane, startLocalZ - i * 1.15 * TRACK_SCALE, height);
+  }
+}
+
+// ---- breather stretches ---------------------------------------------------
+// Every REST_INTERVAL of track, obstacles stop for REST_LENGTH so the run has
+// a rhythm instead of unbroken pressure. Kept deliberately SHORT relative to
+// the interval — a breather is a couple of seconds of open road with a coin
+// trail, not a stretch of nothing. Scenery is never paused (see below).
+const REST_INTERVAL = 800 * TRACK_SCALE;
+const REST_LENGTH = 80 * TRACK_SCALE;
+
+function isRestStretch(layoutDistance) {
+  // no breather before the first interval — the run opens with real obstacles
+  if (layoutDistance < REST_INTERVAL) return false;
+  return (layoutDistance % REST_INTERVAL) < REST_LENGTH;
+}
+
+// Fills one segment's obstacle/coin rows. `startGapZ` lets us skip
+// generating right at the very front of the first ever segment.
+function populateSegment(seg, startGapZ) {
+  // Scenery is laid out for EVERY segment unconditionally, breather stretches
+  // included — the city wall must never break, or the world reads as ending.
+  spawnScenery(seg);
+
+  // Absolute distance along the track that this segment covers. Segment
+  // origins march steadily negative as the run goes on, so negating the origin
+  // gives a monotonic layout cursor that survives recycling and resets with
+  // the track on restart.
+  const segmentBase = -seg.group.position.z;
+
+  // Spacing owed from the previous segment's final row is carried across the
+  // boundary. Without this, every segment restarted its cursor 8 units in and
+  // could drop a row on top of a jump the player was still in the middle of.
+  let localZ = -Math.max(startGapZ, carryGap, 8);
+  const endZ = -(SEGMENT_LENGTH - 2);
+  let pileupChain = 0; // remaining vehicle rows to chain as a pileup
+  let pileupOpenLane = 1;
+  let lastVehicleKey = null; // last model spawned, so the next pick can avoid it
+
+  while (localZ > endZ) {
+    // ---- breather stretch: a short obstacle-free run of coins ----
+    if (isRestStretch(segmentBase - localZ)) {
+      spawnCoinLine(seg, (Math.random() * 3) | 0, localZ, 5 + ((Math.random() * 4) | 0), 1.0);
+      localZ -= 8;
+      pileupChain = 0; // never resume a pileup on the far side of a rest
+      continue;
+    }
+
+    const roll = Math.random();
+    // Rebalanced so late-run (difficulty -> 1) leans into MIXED rows rather
+    // than pure vehicle chains — a long run was spending most of its rows on
+    // back-to-back vehicle pileups (see pileupChain below), crowding out
+    // barriers almost entirely right when the run should be showing its
+    // fullest variety. Vehicle/barrier chances now barely grow with
+    // difficulty; mixed absorbs almost all of the extra pressure instead, so
+    // late-game stays dense but keeps reading as "vehicles AND barriers"
+    // rather than "vehicles, occasionally."
+    let vehicleChance = 0.40 + difficulty * 0.08;
+    let barrierChance = 0.34 + difficulty * 0.06;
+    let mixedChance = 0.18 + difficulty * 0.22;
+    // These three are compared against a single `roll` as stacked bands
+    // (below), so if their sum exceeds 1 the last band in the chain gets
+    // silently clipped down to whatever sliver is left under 1.0 — which is
+    // exactly what was happening here (they summed to 1.28 at difficulty 1,
+    // crushing mixedChance's real share from an intended 0.40 down to an
+    // effective 0.12). Normalizing keeps each band's PROPORTION intact no
+    // matter how the constants above get tuned later, and always leaves at
+    // least 5% of rolls for a plain clear/coin row.
+    const bandSum = vehicleChance + barrierChance + mixedChance;
+    if (bandSum > 0.95) {
+      const scale = 0.95 / bandSum;
+      vehicleChance *= scale;
+      barrierChance *= scale;
+      mixedChance *= scale;
+    }
+    let forcedJump = false; // did this row require leaving the ground?
+    let forcedRoll = false; // did this row require going low?
+    let requiresLaneSwitch = false; // did this row put a vehicle in some lane?
+    let rowDepth = 0;       // longest obstacle in this row, for spacing
+
+    if (pileupChain > 0 || roll < vehicleChance) {
+      // ---- vehicle row: exactly one lane stays open ----
+      if (pileupChain <= 0) {
+        pileupOpenLane = (Math.random() * 3) | 0;
+        // Capped shorter and grows slower with difficulty than before — an
+        // uncapped chain at high difficulty could run 2-4 vehicle rows deep
+        // back to back, which (combined with vehicleChance above) turned
+        // late-game into long vehicle-only stretches with barriers rarely
+        // getting a turn. +0..2 keeps pileups feeling chained without letting
+        // them swallow the row budget mixedChance is now relying on.
+        pileupChain = (Math.random() < 0.35 + difficulty * 0.25) ? 1 + ((Math.random() * 2) | 0) : 1;
+      } else if (Math.random() < 0.5) {
+        // occasionally shift the open lane by one for a chained-switch pileup
+        const shift = Math.random() < 0.5 ? -1 : 1;
+        pileupOpenLane = Math.min(2, Math.max(0, pileupOpenLane + shift));
+      }
+
+      // Weighted pick per blocked lane, threading the previous key through so
+      // a pileup doesn't stack two identical models side by side or in a chain.
+      requiresLaneSwitch = true;
+      const pileupVehicles = [];
+      for (let lane = 0; lane < 3; lane++) {
+        if (lane === pileupOpenLane) continue;
+        lastVehicleKey = TrafficVehicles.pick(lastVehicleKey);
+        const placed = addObstacle(seg, lastVehicleKey, lane, localZ);
+        pileupVehicles.push(placed);
+        // Vehicles vary in length, so the next row has to clear the LONGEST
+        // one placed here or a chained pileup would telescope into itself.
+        rowDepth = Math.max(rowDepth, trackFootprint(lastVehicleKey).depth);
+      }
+      spaceRowVehiclesVisually(pileupVehicles);
+      // coins guiding the player into the open lane, just ahead of the row
+      if (Math.random() < 0.7) spawnCoinLine(seg, pileupOpenLane, localZ + 3.5, 3, 1.0);
+
+      pileupChain--;
+    } else if (roll < vehicleChance + barrierChance) {
+      // ---- barrier row: independent per lane, always passable ----
+      // barrier_low  -> must jump      barrier_gap -> must roll
+      // barrier_high -> either one, so it never dictates the next row's spacing
+      for (let lane = 0; lane < 3; lane++) {
+        if (Math.random() < 0.20) continue;
+        const r = Math.random();
+        const key = r < 0.38 ? 'barrier_low' : (r < 0.72 ? 'barrier_high' : 'barrier_gap');
+        addObstacle(seg, key, lane, localZ);
+        if (key === 'barrier_low') {
+          forcedJump = true;
+          if (Math.random() < 0.5) {
+            // reward arc of coins above the hurdle for jumping it
+            // strung along the jump arc itself (measured chest height while
+            // clearing this wall is ~2.4-3.1), not just above the 1.8 rail —
+            // otherwise a well-timed jump sails clean over the reward.
+            spawnCoinLine(seg, lane, localZ + 0.6, 3, 2.9);
+          }
+        } else if (key === 'barrier_gap') {
+          forcedRoll = true;
+        }
+      }
+    } else if (roll < vehicleChance + barrierChance + mixedChance) {
+      // ---- mixed row: one guaranteed-open lane, the other two each
+      // independently a vehicle OR a barrier. This is the row type that
+      // actually varies the READ from one row to the next — pure vehicle
+      // rows and pure barrier rows each fall into their own rhythm, but a
+      // vehicle in one lane next to a roll-only wall in another forces the
+      // player to parse two different obstacle languages at once.
+      const openLane = (Math.random() * 3) | 0;
+      const mixedVehicles = [];
+      for (let lane = 0; lane < 3; lane++) {
+        if (lane === openLane) continue;
+        if (Math.random() < 0.5) {
+          lastVehicleKey = TrafficVehicles.pick(lastVehicleKey);
+          mixedVehicles.push(addObstacle(seg, lastVehicleKey, lane, localZ));
+          rowDepth = Math.max(rowDepth, trackFootprint(lastVehicleKey).depth);
+          requiresLaneSwitch = true;
+        } else {
+          const r = Math.random();
+          const key = r < 0.38 ? 'barrier_low' : (r < 0.72 ? 'barrier_high' : 'barrier_gap');
+          addObstacle(seg, key, lane, localZ);
+          if (key === 'barrier_low') forcedJump = true;
+          else if (key === 'barrier_gap') forcedRoll = true;
+        }
+      }
+      spaceRowVehiclesVisually(mixedVehicles);
+      if (Math.random() < 0.7) spawnCoinLine(seg, openLane, localZ + 3.2, 3, 1.0);
+    } else {
+      // ---- clear row with a coin line ----
+      const lane = (Math.random() * 3) | 0;
+      spawnCoinLine(seg, lane, localZ, 4 + ((Math.random() * 3) | 0), 1.0);
+    }
+
+    // Advance by REACTION TIME rather than a fixed distance, so rows stay
+    // equally readable as the run speeds up (and get denser as difficulty
+    // ramps). A row that forces a jump reserves a full airtime of clearance,
+    // guaranteeing the player lands before the next row can reach them.
+    // 0.85s of reaction time at the start, tightening to 0.53s once the run is
+    // fully ramped. Below ~0.5s a row stops being readable at max speed, so
+    // that is the floor this is tuned against.
+    let gapSeconds = 0.85 - difficulty * 0.32;
+    if (forcedJump) gapSeconds = Math.max(gapSeconds, JUMP_AIRTIME + 0.18);
+    // A roll is locked in for its full duration, so the next row can't arrive
+    // until the player is upright again.
+    if (forcedRoll) gapSeconds = Math.max(gapSeconds, SLIDE_DURATION + 0.2);
+    // A vehicle in any lane means a lane switch is the ONLY way past it —
+    // and a pileup's shape (2 lanes blocked, 1 open, out of 3 total) means
+    // the open lane can be up to 2 lanes away from wherever the player
+    // already is. This floor is what actually guarantees that's reachable
+    // in time, rather than assuming the baseline above happens to cover it —
+    // at full difficulty (0.53s) it doesn't quite, on its own.
+    if (requiresLaneSwitch) gapSeconds = Math.max(gapSeconds, LANE_SWITCH_MIN_SECONDS);
+    // Floor the step at this row's own length plus a car-length of daylight,
+    // so bigger vehicles push the next row back instead of overlapping it.
+    const minGap = Math.max(6.5, rowDepth + 1.5);
+    localZ -= Math.max(minGap, Game.speed * gapSeconds);
+  }
+
+  // Whatever spacing ran off the end of this segment is owed to the next one.
+  carryGap = Math.max(0, -localZ - SEGMENT_LENGTH);
+}
+
+function recycleSegmentIfNeeded() {
+  for (const seg of segments) {
+    if (seg.group.position.z > RECYCLE_Z) {
+      // Anchor the recycled segment exactly SEGMENT_LENGTH behind wherever the
+      // rest of the track ACTUALLY is right now, rather than a separately
+      // maintained counter. Every segment (this one included, still at its
+      // old position at this instant) advances by the same moveDelta every
+      // frame in tick(), but the old `nextSpawnZ` counter only ever moved when
+      // a recycle happened — it never got that same per-frame advance. So it
+      // silently fell further and further behind the real, scrolling track
+      // the longer a run went on, and every recycle baked in however much
+      // drift had built up since the last one: a real, growing gap between
+      // the newly recycled segment and the one in front of it. This segment
+      // currently holds the FRONT-most position (it's the one crossing
+      // RECYCLE_Z), so the minimum z over the other 10 is exactly the current
+      // back of the queue — self-correcting every time, with no drift to
+      // accumulate in the first place.
+      const backZ = Math.min(...segments.filter((s) => s !== seg).map((s) => s.group.position.z));
+      const newZ = backZ - SEGMENT_LENGTH;
+
+      clearSegment(seg);
+      seg.group.position.z = newZ;
+      // populateSegment is randomized and runs continuously for as long as a
+      // run lasts, so it WILL eventually hit a one-in-a-million edge case. A
+      // bare scenery-only segment (still continuous city/road, just no
+      // obstacles that lap) is far better than losing this recycle entirely,
+      // so failure falls back to that instead of leaving the segment empty.
+      try {
+        populateSegment(seg, 0);
+      } catch (err) {
+        console.error('[populateSegment] failed, spawning scenery-only segment as a fallback', err);
+        clearSegment(seg);
+        carryGap = 0;
+        try { spawnScenery(seg); } catch (err2) { console.error('[spawnScenery] fallback also failed', err2); }
+      }
+    }
+  }
+}
+
+function initTrack() {
+  carryGap = 0;
+  let z = 0;
+  segments.forEach((seg, i) => {
+    clearSegment(seg);
+    seg.group.position.z = z;
+    populateSegment(seg, i === 0 ? SEGMENT_LENGTH : 0);
+    z -= SEGMENT_LENGTH;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// PARTICLES (coin burst) — small pooled sprite-like meshes
+// ---------------------------------------------------------------------------
+const PARTICLE_COUNT = 24;
+const particles = [];
+const particleMat = new THREE.MeshBasicMaterial({ color: Palette.gold });
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+  const m = new THREE.Mesh(Geo.box, particleMat);
+  m.scale.set(0.08, 0.08, 0.08);
+  m.visible = false;
+  scene.add(m);
+  particles.push({ mesh: m, vel: new THREE.Vector3(), life: 0 });
+}
+let particleCursor = 0;
+
+function burstParticles(pos) {
+  for (let i = 0; i < 10; i++) {
+    const p = particles[particleCursor];
+    particleCursor = (particleCursor + 1) % PARTICLE_COUNT;
+    p.mesh.position.copy(pos);
+    p.mesh.visible = true;
+    p.vel.set((Math.random() - 0.5) * 4, Math.random() * 4 + 1, (Math.random() - 0.5) * 4);
+    p.life = 0.5;
+  }
+}
+
+function updateParticles(dt) {
+  for (const p of particles) {
+    if (p.life <= 0) continue;
+    p.life -= dt;
+    if (p.life <= 0) { p.mesh.visible = false; continue; }
+    p.vel.y += GRAVITY * 0.35 * dt;
+    p.mesh.position.addScaledVector(p.vel, dt);
+    const s = Math.max(0, p.life / 0.5) * 0.08;
+    p.mesh.scale.set(s, s, s);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SCREEN JUICE: shake, flash, speed-lines
+// ---------------------------------------------------------------------------
+let shakeTime = 0, shakeMag = 0;
+function triggerShake(mag, duration) { shakeTime = duration; shakeMag = mag; }
+
+// A directional shake — a decaying LEFT-RIGHT wobble on the camera rig's X
+// only, rather than the omnidirectional random jitter above. Used for the
+// side-bounce off an obstacle, where the screen reading as "shoved sideways"
+// matters more than a generic impact rattle.
+let lateralShakeTime = 0, lateralShakeMag = 0, lateralShakeElapsed = 0;
+const LATERAL_SHAKE_FREQ = 46; // radians/sec — slower swings read as bigger, sharper ones read as buzzy
+function triggerLateralShake(mag, duration) {
+  lateralShakeTime = duration;
+  lateralShakeMag = mag;
+  lateralShakeElapsed = 0;
+}
+
+const flashEl = document.getElementById('flash-overlay');
+function triggerFlash() {
+  flashEl.style.opacity = '0.55';
+  setTimeout(() => { flashEl.style.opacity = '0'; }, 90);
+}
+const speedlinesEl = document.getElementById('speedlines');
+
+// ---------------------------------------------------------------------------
+// GAME STATE / SCORE / UI
+// ---------------------------------------------------------------------------
+// The only thing that persists between runs is the all-time best score —
+// coins are scored within a run, not banked.
+const Save = {
+  high: parseInt(localStorage.getItem('laneDashHighScore') || '0', 10),
+  persist() {
+    localStorage.setItem('laneDashHighScore', String(this.high));
+  },
+};
+// leftovers from the removed upgrade shop
+['laneDashBank', 'laneDashSpeedLvl', 'laneDashMultLvl'].forEach((k) => localStorage.removeItem(k));
+
+// Multiplier level earned by surviving: 1x at the start, +1 every
+// MULT_DISTANCE, capped so a very long run can't run away with it.
+function multiplierFor(distance) {
+  return Math.min(MULT_MAX, 1 + Math.floor(distance / MULT_DISTANCE));
+}
+
+const Game = {
+  state: 'start', // 'start' | 'playing' | 'paused' | 'gameover'
+  speed: BASE_SPEED,
+  score: 0,
+  coins: 0,
+  multiplier: 1,
+};
+
+const hud = document.getElementById('hud');
+const hudScore = document.getElementById('hud-score');
+const hudHigh = document.getElementById('hud-high');
+const hudCoins = document.getElementById('hud-coins');
+const startScreen = document.getElementById('start-screen');
+const gameoverScreen = document.getElementById('gameover-screen');
+const goScore = document.getElementById('go-score');
+const goCoins = document.getElementById('go-coins');
+const goHigh = document.getElementById('go-high');
+
+const hudMult = document.getElementById('hud-mult');
+
+const pauseScreen = document.getElementById('pause-screen');
+const pauseScoreEl = document.getElementById('pause-score');
+const pauseCoinsEl = document.getElementById('pause-coins');
+
+hudHigh.textContent = 'Best: ' + Save.high;
+
+// The very first start requires a name (folded into the existing start
+// screen rather than a separate gate — see the PLAYER IDENTITY block up
+// top). Restarting after a run reuses whatever name was already entered, so
+// it doesn't re-prompt. Also persisted to localStorage (same key-naming
+// convention as Save.high above) so a RETURNING visitor — a fresh page load,
+// not just a same-session restart — doesn't have to retype it.
+const PLAYER_NAME_STORAGE_KEY = 'laneDashPlayerName';
+const usernameInput = document.getElementById('username-input');
+const savedPlayerName = localStorage.getItem(PLAYER_NAME_STORAGE_KEY);
+if (savedPlayerName) usernameInput.value = savedPlayerName;
+
+function tryStartFromNameEntry() {
+  const name = usernameInput.value.trim();
+  if (!name) {
+    alert('Please enter a name to start the run.');
+    return;
+  }
+  playerCurrentName = name;
+  isGameStarted = true;
+  localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name);
+  startGame();
+}
+
+// Starting is deliberately ONLY through this button now — no "tap anywhere
+// on the canvas" or "press any key" shortcut, on desktop or mobile, so a name
+// always gets entered (and validated) before a run can begin.
+document.getElementById('start-btn').addEventListener('click', tryStartFromNameEntry);
+// RESTART reuses whatever name is already in playerCurrentName/the input,
+// unchanged — same run loop as before, scores keep accumulating under the
+// same identity. MAIN MENU is the other way back in: it returns to the
+// start screen with the name field still showing (and still editable)
+// whatever was last typed there, so the player can tweak it — or not — and
+// go through the normal validated tryStartFromNameEntry() path again rather
+// than skipping straight back into a run.
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+function goToMainMenu() {
+  Game.state = 'start';
+  gameoverScreen.classList.add('hidden');
+  startScreen.classList.remove('hidden');
+}
+
+document.getElementById('gameover-menu-btn').addEventListener('click', goToMainMenu);
+
+// ---------------------------------------------------------------------------
+// PAUSE
+// ---------------------------------------------------------------------------
+// A dedicated state rather than a flag layered onto 'playing': every other
+// system already switches behaviour off of Game.state (HUD, camera idle
+// drift, the tick() loop below), so pausing this way means nothing keeps
+// running in the background by accident.
+function pauseGame() {
+  if (Game.state !== 'playing') return;
+  Game.state = 'paused';
+  pauseScoreEl.textContent = Math.floor(Game.score);
+  pauseCoinsEl.textContent = Game.coins + ' coins × ' + Game.multiplier;
+  pauseScreen.classList.remove('hidden');
+}
+
+function resumeGame() {
+  if (Game.state !== 'paused') return;
+  Game.state = 'playing';
+  pauseScreen.classList.add('hidden');
+  // No delta-catch-up handling needed here: tick() drains clock.getDelta()
+  // every animation frame regardless of pause state, so time spent paused
+  // never accumulates into a single giant jump on resume.
+}
+
+function togglePause() {
+  if (Game.state === 'playing') pauseGame();
+  else if (Game.state === 'paused') resumeGame();
+}
+
+document.getElementById('pause-resume-btn').addEventListener('click', resumeGame);
+document.getElementById('pause-end-btn').addEventListener('click', () => {
+  pauseScreen.classList.add('hidden');
+  endGame();
+});
+
+// On-screen pause button — the only way to pause on a touch device, since
+// the P key obviously isn't there. Lives in the HUD corner, out of the way
+// of the swipe gestures touchControls.js reads off the canvas.
+document.getElementById('hud-pause-btn').addEventListener('click', togglePause);
+
+function startGame() {
+  if (Game.state === 'playing') return;
+  Game.state = 'playing';
+  Game.speed = BASE_SPEED;
+  Game.score = 0;
+  Game.coins = 0;
+  Game.multiplier = 1;
+  resetPlayer();
+  initTrack();
+  startScreen.classList.add('hidden');
+  gameoverScreen.classList.add('hidden');
+  hud.style.display = 'flex';
+}
+
+function endGame() {
+  Game.state = 'gameover';
+  const finalScore = Math.floor(Game.score);
+  const isNew = finalScore > Save.high;
+  if (isNew) Save.high = finalScore;
+  Save.persist();
+
+  // Fire-and-forget — submitScore (supabaseClient.js) is async and never
+  // throws back into this function, so the game-over screen below renders
+  // immediately regardless of how long (or whether) the network call takes.
+  submitScore(playerCurrentName, finalScore);
+
+  goScore.textContent = finalScore;
+  // show the sum, so the coins x multiplier rule is obvious
+  goCoins.innerHTML = Game.coins + ' coins &nbsp;&times;&nbsp; ' + Game.multiplier + ' multiplier';
+  goHigh.innerHTML = isNew ? '<span class="new-high">NEW BEST!</span>' : ('Best: ' + Save.high);
+  gameoverScreen.classList.remove('hidden');
+  hud.style.display = 'none';
+  triggerShake(0.35, 0.4);
+  triggerFlash();
+}
+
+function updateHUD() {
+  hudScore.textContent = Math.floor(Game.score);
+  hudCoins.textContent = Game.coins;
+  hudMult.textContent = 'x' + Game.multiplier;
+  hudHigh.textContent = 'Best: ' + Save.high;
+}
+
+// ---------------------------------------------------------------------------
+// COLLISION CHECK
+// ---------------------------------------------------------------------------
+// Only a HEAD-ON hit ends the run. "Head-on" means the body was genuinely in
+// the obstacle's path when they met — it has to overlap by a real fraction of
+// its OWN width and its OWN height. Every shallower contact is a graze: the
+// sole of a shoe scuffing the top of a wall at the peak of a jump, a shoulder
+// catching a corner mid-lane-change, hair brushing the underside of a beam.
+// Those are survivable.
+//
+// The fractions are taken against the player's extent rather than the
+// obstacle's, so they mean the same thing for a knee-high hurdle and a bus.
+// They differ per axis because the two grazes are different sizes: clipping a
+// ledge is a shoe-deep scuff, while being half a body into a lane is squarely
+// in the way of whatever is coming down it.
+const FATAL_OVERLAP_X = 0.5;  // half a body width into the lane
+const FATAL_OVERLAP_Y = 0.2;  // ~ankle-deep through the top of a wall
+
+function contactKind(pBox, oBox) {
+  const fp = trackFootprint('player');
+  const overlapX = Math.min(pBox.maxX, oBox.maxX) - Math.max(pBox.minX, oBox.minX);
+  const overlapY = Math.min(pBox.maxY, oBox.maxY) - Math.max(pBox.minY, oBox.minY);
+  const deepX = overlapX >= fp.width * FATAL_OVERLAP_X;
+  const deepY = overlapY >= fp.height * FATAL_OVERLAP_Y;
+  if (deepX && deepY) return 'fatal';
+  return deepX ? 'graze-vertical' : 'graze-side';
+}
+
+// Scuff over/under the edge instead of dying. The jump arc is left intact —
+// the runner is only lifted out of the overlap, not bounced or stopped.
+function skimClear(oBox) {
+  const fp = trackFootprint('player');
+  const playerMid = playerState.y + fp.height / 2;
+  if (playerMid > (oBox.minY + oBox.maxY) / 2) {
+    playerState.y = oBox.maxY;
+    playerState.prevY = playerState.y;
+    player.position.y = playerState.y;
+  }
+  triggerShake(0.08, 0.12);
+}
+
+// Shove the runner clear of the obstacle and back toward the lane they came
+// from. Deliberately not a death, not a speed penalty — just a nudge.
+function bounceOff(oBox) {
+  const fp = trackFootprint('player');
+  const obstacleCentreX = (oBox.minX + oBox.maxX) / 2;
+  const dir = playerState.x >= obstacleCentreX ? 1 : -1;
+  const edge = dir > 0 ? oBox.maxX : oBox.minX;
+
+  // out of the overlap, with a hair of clearance so the next frame is clean
+  playerState.x = edge + dir * (fp.width / 2 + 0.02);
+  playerState.prevX = playerState.x; // don't sweep across the shove itself
+
+  // retarget the nearest lane on the side we were pushed toward
+  let lane = playerState.lane;
+  while (lane > 0 && LANES[lane] > playerState.x && dir < 0) lane--;
+  while (lane < LANES.length - 1 && LANES[lane] < playerState.x && dir > 0) lane++;
+  playerState.lane = lane;
+  playerState.targetX = LANES[lane];
+
+  triggerLateralShake(0.85, 0.32);
+}
+
+// `moveDelta` is how far the world advanced this frame. Obstacles are tested
+// against the whole interval they SWEPT through, not just their final
+// position — at 26 u/s a single frame can carry a thin barrier clean past
+// the player's 0.7-unit depth, which would otherwise register as no hit.
+function checkCollisions(moveDelta) {
+  const pBox = playerAABB();
+  for (const seg of segments) {
+    const segZ = seg.group.position.z;
+    // Quick reject. A segment's contents live in [segZ - SEGMENT_LENGTH, segZ],
+    // so a segment whose ORIGIN is far behind the player can still hold
+    // obstacles right on top of them — rejecting on the origin alone let the
+    // player run straight through those.
+    if (segZ < -10 || segZ > SEGMENT_LENGTH + 10) continue;
+
+    for (const o of seg.obstacles) {
+      const worldZ = segZ + o.localZ;
+      if (worldZ < -8 || worldZ > 8) continue;
+      const fp = o.footprint;
+      const laneX = LANES[o.lane];
+      const oBox = {
+        minX: laneX - fp.width / 2, maxX: laneX + fp.width / 2,
+        minY: fp.yBase, maxY: fp.yBase + fp.height,
+        // swept: extend backwards to where this obstacle sat last frame
+        minZ: worldZ - fp.depth / 2 - moveDelta, maxZ: worldZ + fp.depth / 2,
+      };
+      if (aabbIntersect(pBox, oBox)) {
+        const kind = contactKind(pBox, oBox);
+        if (kind === 'graze-side') { bounceOff(oBox); continue; }
+        if (kind === 'graze-vertical') { skimClear(oBox); continue; }
+        return true; // head-on
+      }
+    }
+
+    for (const c of seg.coins) {
+      if (c.collected) continue;
+      const worldZ = segZ + c.localZ;
+      if (worldZ < -8 || worldZ > 8) continue;
+      const laneX = LANES[c.lane];
+      const dx = Math.abs(playerState.x - laneX);
+      const chestY = playerState.y + (isLowProfile() ? 0.45 : 0.9) * TRACK_SCALE;
+      const dy = Math.abs(chestY - c.height);
+      // swept on z as well, so coins are never skipped over at high speed
+      const reach = 0.8 * TRACK_SCALE;
+      const halfDepth = 0.4 * TRACK_SCALE;
+      const czMin = worldZ - reach - moveDelta;
+      const czMax = worldZ + reach;
+      if (dx < 0.55 * TRACK_SCALE && dy < 0.6 * TRACK_SCALE &&
+          czMin < halfDepth && czMax > -halfDepth) {
+        c.collected = true;
+        c.mesh.visible = false;
+        Game.coins++;
+        burstParticles(new THREE.Vector3(laneX, c.height, 0));
+      }
+    }
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// PLAYER UPDATE (state machine: running / jumping / sliding / lane-switching)
+// ---------------------------------------------------------------------------
+function updatePlayer(dt) {
+  // Where the body was before this frame moved it — collision sweeps from here
+  // so nothing can be crossed without being tested (see playerAABB).
+  playerState.prevX = playerState.x;
+  playerState.prevY = playerState.y;
+
+  // lane lerp (smooth, frame-rate independent)
+  playerState.x += (playerState.targetX - playerState.x) * Math.min(1, LANE_LERP_SPEED * dt);
+  player.position.x = playerState.x;
+
+  // vertical (jump)
+  if (playerState.isJumping) {
+    playerState.velY += GRAVITY * dt;
+    playerState.y += playerState.velY * dt;
+    if (playerState.y <= 0) {
+      playerState.y = 0;
+      playerState.velY = 0;
+      playerState.isJumping = false;
+      // a dive converts into a roll the moment it touches down
+      if (playerState.isDiving) {
+        playerState.isDiving = false;
+        playerState.isRolling = true;
+        playerState.rollTimer = ROLL_DURATION;
+        triggerShake(0.12, 0.16); // little impact thump
+      }
+    }
+  }
+  player.position.y = playerState.y;
+
+  // sliding
+  if (playerState.isSliding) {
+    playerState.slideTimer -= dt;
+    if (playerState.slideTimer <= 0) playerState.isSliding = false;
+  }
+
+  // rolling
+  if (playerState.isRolling) {
+    playerState.rollTimer -= dt;
+    if (playerState.rollTimer <= 0) playerState.isRolling = false;
+  }
+
+  // forward distance / speed ramp
+  playerState.distance += Game.speed * dt;
+  Game.speed = Math.min(MAX_SPEED, BASE_SPEED + playerState.distance * SPEED_RAMP_PER_UNIT);
+  Game.multiplier = multiplierFor(playerState.distance);
+  Game.score = Game.coins * Game.multiplier;
+  difficulty = Math.min(1, playerState.distance / DIFFICULTY_DISTANCE);
+
+  // ---- procedural animation ----
+  const speedFactor = Game.speed / BASE_SPEED;
+  playerState.runPhase += dt * 9 * speedFactor * (isLowProfile() ? 0 : 1);
+  const swing = Math.sin(playerState.runPhase);
+
+  if (Character.isActive()) {
+    // ---- rigged Mixamo character: the AnimationMixer owns the pose ----
+    // The rig only carries position and the lane-switch lean; every limb is
+    // driven by the bound clips (or, for the roll, character.js's stand-in).
+    player.scale.setScalar(TRACK_SCALE);
+    player.rotation.x = 0;
+    player.position.y = playerState.y;
+
+    // the roll clip is stretched to match whichever duck window is active,
+    // so the animation stays down for as long as the hitbox does
+    if (isLowProfile()) Character.playRoll(playerState.isSliding ? SLIDE_DURATION : ROLL_DURATION);
+    else if (playerState.isJumping) Character.playJump(JUMP_AIRTIME);
+    else Character.playRun();
+  } else if (isLowProfile()) {
+    // One shared ducking pose for BOTH low states — the ground slide and the
+    // roll recovered into after an air dive. They stay separate states (they
+    // have different durations) but read identically on screen.
+    player.scale.setScalar(TRACK_SCALE);
+    player.rotation.x = 1.15;
+    player.position.y = playerState.y + 0.05 * TRACK_SCALE;
+    playerParts.legL.rotation.x = 0.4;
+    playerParts.legR.rotation.x = 0.4;
+    playerParts.armL.rotation.x = -0.6;
+    playerParts.armR.rotation.x = -0.6;
+  } else {
+    player.scale.setScalar(TRACK_SCALE);
+    player.rotation.x = 0;
+    if (playerState.isDiving) {
+      // tucked head-down slam
+      player.rotation.x = -0.55;
+      playerParts.legL.rotation.x = 1.2;
+      playerParts.legR.rotation.x = 1.0;
+      playerParts.armL.rotation.x = -1.2;
+      playerParts.armR.rotation.x = -1.2;
+    } else if (playerState.isJumping) {
+      playerParts.legL.rotation.x = -0.5;
+      playerParts.legR.rotation.x = 0.35;
+      playerParts.armL.rotation.x = 0.6;
+      playerParts.armR.rotation.x = -0.6;
+    } else {
+      playerParts.legL.rotation.x = swing * 0.9;
+      playerParts.legR.rotation.x = -swing * 0.9;
+      playerParts.armL.rotation.x = -swing * 0.7;
+      playerParts.armR.rotation.x = swing * 0.7;
+      player.position.y = playerState.y + Math.abs(swing) * 0.05 * TRACK_SCALE;
+    }
+  }
+  // slight lean into lane switches
+  player.rotation.z = (playerState.targetX - playerState.x) * -0.15;
+}
+
+// ---------------------------------------------------------------------------
+// CAMERA UPDATE
+// ---------------------------------------------------------------------------
+// Rig position without shake. Shake is added on top when the rig is written,
+// never folded back into this, so a hit can't drag the framing off-centre.
+let rigX = 0;
+
+function updateCamera(dt) {
+  const speedFactor = (Game.speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED);
+
+  // ---- rig: forward follow + subtle lateral drift -------------------------
+  // The runner is authored at z = 0 and the world scrolls past, so tracking
+  // player.position.z is a no-op today — it is written out explicitly so the
+  // rig stays correct if the runner is ever moved along z instead.
+  const targetRigX = playerState.x * CAMERA.lateralFollow;
+  rigX += (targetRigX - rigX) * Math.min(1, CAMERA.lateralLag * dt);
+
+  let shakeX = 0, shakeY = 0;
+  if (shakeTime > 0) {
+    shakeTime -= dt;
+    const m = shakeMag * (shakeTime > 0 ? shakeTime : 0);
+    shakeX += (Math.random() - 0.5) * m;
+    shakeY += (Math.random() - 0.5) * m;
+  }
+  if (lateralShakeTime > 0) {
+    lateralShakeTime -= dt;
+    lateralShakeElapsed += dt;
+    const remaining = Math.max(0, lateralShakeTime);
+    shakeX += lateralShakeMag * remaining * Math.sin(lateralShakeElapsed * LATERAL_SHAKE_FREQ);
+  }
+  cameraRig.position.set(rigX + shakeX, shakeY, player.position.z);
+
+  // ---- camera local offsets: fixed framing, plus a hint of speed ----------
+  // Note there is deliberately NO term here for playerState.y: the camera is a
+  // steady platform the character moves within, so jumps and rolls read as the
+  // character moving, not the world lurching.
+  const settle = Math.min(1, CAMERA.speedSettle * dt);
+  const targetY = (CAMERA.height + speedFactor * CAMERA.speedRise) * cameraZoom;
+  const targetZ = (CAMERA.distance + speedFactor * CAMERA.speedPullback) * cameraZoom;
+  camera.position.y += (targetY - camera.position.y) * settle;
+  camera.position.z += (targetZ - camera.position.z) * settle;
+
+  const targetFov = CAMERA.fov + speedFactor * CAMERA.speedFovGain;
+  camera.fov += (targetFov - camera.fov) * settle;
+  camera.updateProjectionMatrix();
+
+  speedlinesEl.style.opacity = String(Math.max(0, speedFactor - 0.15) * 0.8);
+}
+
+// ---------------------------------------------------------------------------
+// MAIN LOOP
+// ---------------------------------------------------------------------------
+const clock = new THREE.Clock();
+
+function animateCoins(dt) {
+  for (const seg of segments) {
+    for (const c of seg.coins) {
+      if (c.collected) continue;
+      c.mesh.rotation.y += dt * 3;
+    }
+  }
+}
+
+function tick() {
+  requestAnimationFrame(tick);
+  const dt = Math.min(0.05, clock.getDelta());
+
+  // Paused: drain the clock so resuming doesn't see one giant delta, but
+  // touch nothing else — no physics, no animation, no re-render. The last
+  // frame stays on screen underneath the (opaque enough) pause overlay.
+  if (Game.state === 'paused') return;
+
+  if (Game.state === 'playing') {
+    updatePlayer(dt);
+
+    const moveDelta = Game.speed * dt;
+    for (const seg of segments) seg.group.position.z += moveDelta;
+    recycleSegmentIfNeeded();
+    animateCoins(dt);
+
+    if (checkCollisions(moveDelta)) {
+      triggerShake(0.4, 0.5);
+      triggerFlash();
+      endGame();
+    }
+
+    updateHUD();
+  } else {
+    // idle drift on menus — moved on the RIG, so the framing stays identical
+    cameraRig.position.x = Math.sin(performance.now() * 0.0003) * 0.6;
+    Character.playIdle(); // idle loop on the start / game-over screens
+  }
+
+  // advance the character's clips off the SAME delta driving the game
+  Character.update(dt);
+  updateParticles(dt);
+  if (Game.state !== 'playing') updateCamera(dt); else updateCamera(dt);
+  renderer.render(scene, camera);
+}
+
+initTrack();
+
+// The first track is laid out before the GLBs finish parsing, so it uses
+// placeholder footprints. Rebuild it once the real measured sizes are in
+// (unless the player already started, in which case recycled segments will
+// pick the real models up on their own).
+CityModels.init().then(() => {
+  if (Game.state !== 'playing') initTrack();
+});
+
+// LOADING SCREEN — stays up (blocking every other view, per its own z-index)
+// until every asset-loading module has settled, success or failure alike, so
+// the pop-in that used to happen after the start screen already showed can
+// never be seen. Each of these three calls returns the SAME cached promise
+// the module kicked off at file-load time; calling init() again here just
+// lets game.js hook onto it, it does not re-trigger any loading.
+const loadingScreenEl = document.getElementById('loading-screen');
+const loadingBarFillEl = document.getElementById('loading-bar-fill');
+// The bar's CSS width transition (.15s) is still visually catching up to the
+// last tick() call the instant this promise settles — hiding the screen
+// immediately would cut the fill off short of 100%. Force it to full and
+// give the transition time to actually finish painting before dismissing.
+const LOADING_BAR_SETTLE_MS = 250;
+Promise.all([characterLoadPromise, CityModels.init(), TrafficVehicles.init()]).then(() => {
+  if (loadingBarFillEl) loadingBarFillEl.style.width = '100%';
+  setTimeout(() => {
+    if (loadingScreenEl) loadingScreenEl.classList.add('hidden');
+  }, LOADING_BAR_SETTLE_MS);
+});
+
+tick();
+
+================================================================================
+FILE: touchControls.js
+================================================================================
+/* ============================================================================
+   TOUCH CONTROLS — swipe-to-lane-change/jump/roll for touchscreens.
+
+   This file only detects gestures. It never touches player/game state
+   directly — every gesture routes into tryLaneChange/tryJump/trySlide, the
+   exact same functions the keydown handler in game.js calls, so keyboard and
+   touch are two front-ends over one action layer rather than two parallel
+   gameplay implementations. Loaded after game.js so those globals (canvas,
+   Game, tryLaneChange, tryJump, trySlide) already exist in this shared
+   top-level script scope.
+
+   Both input paths stay live at all times — nothing here disables the
+   keyboard, and nothing in game.js disables touch. A touchscreen laptop with
+   a keyboard attached, or a phone with a Bluetooth controller, both just work.
+
+   Orientation: the game's chase camera (see cameraNarrowZoom in game.js)
+   dollies back automatically on narrow aspect ratios, so portrait is treated
+   as the primary phone orientation, but nothing here assumes it — swipes are
+   read the same way in landscape.
+============================================================================ */
+
+(function () {
+  const SWIPE_MIN_DIST = 40;      // px — under this it's a tap or jitter, not a swipe
+  const SWIPE_MAX_DURATION = 600; // ms — a slow drag isn't read as a swipe either
+  const TAP_MAX_DIST = 12;        // px — a clean tap moves less than this
+  const TAP_MAX_DURATION = 250;   // ms
+
+  let startX = 0, startY = 0, startT = 0, tracking = false;
+
+  function onTouchStart(e) {
+    const t = e.changedTouches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+    startT = performance.now();
+    tracking = true;
+  }
+
+  function onTouchMove(e) {
+    if (!tracking) return;
+    // Only fight the browser's native scroll/pinch-zoom/pull-to-refresh while
+    // a run is actually in progress. On the start/pause/game-over overlays we
+    // deliberately leave default touch behaviour alone so their buttons (and
+    // the canvas's own tap-to-start listener in game.js) keep working as a
+    // normal tap, synthetic click included.
+    if (Game.state === 'playing') e.preventDefault();
+  }
+
+  function onTouchEnd(e) {
+    if (!tracking) return;
+    tracking = false;
+
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    const dt = performance.now() - startT;
+    const adx = Math.abs(dx), ady = Math.abs(dy);
+    const dist = Math.max(adx, ady);
+
+    if (Game.state === 'playing') e.preventDefault();
+    if (Game.state !== 'playing') return; // menu taps belong to their own DOM buttons/listeners
+
+    if (dist < TAP_MAX_DIST && dt < TAP_MAX_DURATION) return; // plain tap mid-run — no gameplay action
+    if (dist < SWIPE_MIN_DIST || dt > SWIPE_MAX_DURATION) return; // too small/slow to count as a deliberate swipe
+
+    // Classify by whichever axis moved further, exactly one action per swipe.
+    if (adx > ady) {
+      tryLaneChange(dx > 0 ? 1 : -1); // swipe right / left
+    } else if (dy > 0) {
+      trySlide(); // swipe down
+    } else {
+      tryJump(); // swipe up
+    }
+  }
+
+  canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+  canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+  canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+})();
+
