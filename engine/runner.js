@@ -117,6 +117,7 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+DevFPS.attachRenderer(renderer); // no-op unless ?debug/?fps — see engine/dev-fps.js
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8fd3ff);

@@ -17,6 +17,15 @@
    huge jump on a stalled tab/slow frame — correct for gameplay, but it
    means a genuinely worse stall (say, 150ms) would report as a suspiciously
    round "50.0ms" here and hide exactly the number this tool exists to show.
+
+   Optionally call DevFPS.attachRenderer(renderer) once at startup to also
+   surface Three.js's own renderer.info counters (draw calls, triangles) —
+   the actual GPU submission cost per frame, not just wall-clock time. For a
+   scene built from lots of small separate meshes (this project's procedural
+   buildings/streetlights/lane-dashes, none of them batched or instanced),
+   draw-call count is usually the real story behind a frame-time problem,
+   and this is the direct, no-guessing way to see it instead of inferring it
+   from FPS alone.
 ============================================================================ */
 const DevFPS = (function () {
   const params = new URLSearchParams(window.location.search);
@@ -60,6 +69,7 @@ const DevFPS = (function () {
   let windowStart = performance.now();
   let worstFrameMs = 0;
   let lastTickTime = performance.now();
+  let renderer = null;
 
   function yForFps(fps, h) {
     return h - Math.min(fps, MAX_FPS_AXIS) / MAX_FPS_AXIS * h;
@@ -92,10 +102,17 @@ const DevFPS = (function () {
       ctx.stroke();
     }
 
-    label.textContent = 'FPS ' + currentFps + '  (worst frame ' + worstMsInWindow.toFixed(1) + 'ms)';
+    let text = 'FPS ' + currentFps + '  (worst frame ' + worstMsInWindow.toFixed(1) + 'ms)';
+    if (renderer) {
+      const info = renderer.info;
+      text += '\ndraw calls ' + info.render.calls + '   triangles ' + info.render.triangles.toLocaleString();
+      text += '\ngeometries ' + info.memory.geometries + '   textures ' + info.memory.textures;
+    }
+    label.textContent = text;
   }
 
   return {
+    attachRenderer(r) { renderer = r; },
     tick() {
       const now = performance.now();
       const rawMs = now - lastTickTime;
