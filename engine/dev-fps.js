@@ -7,9 +7,16 @@
    a suspected performance regression.
 
    Self-contained: reads nothing from the game and writes nothing back
-   except its own DOM node. Call DevFPS.tick(dt) once per animation frame
-   from runner.js's main loop — it no-ops entirely (a single property check)
-   when the debug flag isn't set, so there's no cost for a normal player.
+   except its own DOM node. Call DevFPS.tick() once per animation frame from
+   runner.js's main loop — it no-ops entirely (a single property check) when
+   the debug flag isn't set, so there's no cost for a normal player.
+
+   Deliberately measures its OWN raw frame time via performance.now(),
+   rather than accepting the game's dt as a parameter: runner.js clamps its
+   delta to 50ms (Math.min(0.05, clock.getDelta())) so physics never take a
+   huge jump on a stalled tab/slow frame — correct for gameplay, but it
+   means a genuinely worse stall (say, 150ms) would report as a suspiciously
+   round "50.0ms" here and hide exactly the number this tool exists to show.
 ============================================================================ */
 const DevFPS = (function () {
   const params = new URLSearchParams(window.location.search);
@@ -52,6 +59,7 @@ const DevFPS = (function () {
   let windowFrames = 0;
   let windowStart = performance.now();
   let worstFrameMs = 0;
+  let lastTickTime = performance.now();
 
   function yForFps(fps, h) {
     return h - Math.min(fps, MAX_FPS_AXIS) / MAX_FPS_AXIS * h;
@@ -88,15 +96,17 @@ const DevFPS = (function () {
   }
 
   return {
-    tick(dt) {
+    tick() {
       const now = performance.now();
-      const instFps = dt > 0 ? 1 / dt : 0;
+      const rawMs = now - lastTickTime;
+      lastTickTime = now;
+      const instFps = rawMs > 0 ? 1000 / rawMs : 0;
       history.push({ t: now, fps: instFps });
       const cutoff = now - HISTORY_SECONDS * 1000;
       while (history.length && history[0].t < cutoff) history.shift();
 
       windowFrames++;
-      worstFrameMs = Math.max(worstFrameMs, dt * 1000);
+      worstFrameMs = Math.max(worstFrameMs, rawMs);
 
       if (now - lastRedraw >= REDRAW_INTERVAL_MS) {
         const elapsed = now - windowStart;

@@ -521,6 +521,11 @@ const SCENERY_KEYS = RunnerTheme.SCENERY_KEYS;
 const BILLBOARD_INTERVAL = RunnerTheme.BILLBOARD.interval * TRACK_SCALE;
 const BILLBOARD_SETBACK = RunnerTheme.BILLBOARD.setback; // flat offset, not TRACK_SCALE'd — see theme.js
 const HAS_BILLBOARD_CREATIVES = typeof RunnerBillboards !== 'undefined' && RunnerBillboards.length > 0;
+// Diagnostic-only A/B switch (?nobillboards in the URL) for isolating
+// whether billboards are actually the cause of a suspected perf regression
+// — same build, same everything else, just skips spawnBillboards() below.
+// Not a real feature toggle; remove once the investigation is done.
+const BILLBOARDS_DISABLED = new URLSearchParams(window.location.search).has('nobillboards');
 
 function addBillboard(seg, x, localZ, rotY, creative) {
   const mesh = MeshPool.acquire(SCENERY_KEYS.billboard);
@@ -569,7 +574,7 @@ function spawnLaneLines(seg) {
 
 function spawnScenery(seg) {
   spawnLaneLines(seg);
-  spawnBillboards(seg);
+  if (!BILLBOARDS_DISABLED) spawnBillboards(seg);
   for (const row of CITY_ROWS) {
     spawnCityRow(seg, -1, row);
     spawnCityRow(seg, 1, row);
@@ -1451,7 +1456,7 @@ function tick() {
   updateParticles(dt);
   if (Game.state !== 'playing') updateCamera(dt); else updateCamera(dt);
   renderer.render(scene, camera);
-  DevFPS.tick(dt); // no-op unless ?debug or ?fps is in the URL — see engine/dev-fps.js
+  DevFPS.tick(); // no-op unless ?debug or ?fps is in the URL — see engine/dev-fps.js
 }
 
 initTrack();
