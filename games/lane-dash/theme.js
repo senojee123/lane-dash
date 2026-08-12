@@ -112,6 +112,13 @@ const RunnerTheme = {
     billboard: 'billboard',
   },
 
+  // Distance between streetlights (pre-scale, like BILLBOARD.interval below
+  // — engine/runner.js multiplies by TRACK_SCALE). Placed deterministically,
+  // alternating sides, keyed off absolute distance the same way billboards
+  // are — was previously `11 + Math.random()*5` with a random side each
+  // time, which could clump two on the same side back to back.
+  STREETLIGHT_INTERVAL: 12,
+
   // ---- billboards ------------------------------------------------------
   // WHICH images/videos actually show is sponsor content, see billboards.js
   // (RunnerBillboards) — this is placement/sizing only. One billboard slot

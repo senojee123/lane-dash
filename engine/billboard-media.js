@@ -6,6 +6,11 @@
    of each spawning its own. No content-pack knowledge lives here — only
    RunnerBillboards (this pack's billboards.js) supplies what plays.
 
+   Also exposes getImageTexture(url, aspect, backingColorHex) — the same
+   contain-fit compositing, generalized for anything else that wants one
+   image on a fixed-aspect surface outside the billboard creative/placement
+   system. brand.js's optional coin face image uses this directly.
+
    Depends on THREE (loaded via the CDN <script> tags in index.html) and,
    for image creatives, RunnerTheme.BILLBOARD's panel aspect ratio/backing
    color (theme.js) — read lazily inside buildImageTexture(), only once a
@@ -75,24 +80,24 @@ function buildVideoTexture(url) {
 }
 
 /**
- * "Contain" fit: composites the loaded image onto a canvas sized to the
- * panel's own aspect ratio (RunnerTheme.BILLBOARD.panelWidth/panelHeight),
- * scaled to fit fully inside without cropping or stretching, centered, on a
- * solid backing color. Without this a logo — square, portrait, whatever its
- * native shape — would just be stretched to fill the panel's wide rectangle
- * and read as smeared/distorted. Returns the canvas texture immediately
- * (blank, backing-colored) and repaints it once the image has actually
- * loaded, same lazy-upgrade shape as every other async asset in this
- * project (ModelCache, character.js's clips, ...).
+ * "Contain" fit: composites the loaded image onto a canvas of the given
+ * aspect ratio, scaled to fit fully inside without cropping or stretching,
+ * centered, on a solid backing color. Without this a logo — square,
+ * portrait, whatever its native shape — would just be stretched to fill
+ * whatever rectangle it's applied to and read as smeared/distorted. Returns
+ * the canvas texture immediately (blank, backing-colored) and repaints it
+ * once the image has actually loaded, same lazy-upgrade shape as every
+ * other async asset in this project (ModelCache, character.js's clips, ...).
+ * Generic — knows nothing about billboards specifically, which is what lets
+ * getImageTexture() below reuse it for anything else (e.g. a coin face)
+ * that wants an image composited onto a fixed-aspect surface.
  */
-function buildImageTexture(url) {
-  const panel = RunnerTheme.BILLBOARD;
-  const panelAspect = panel.panelWidth / panel.panelHeight;
+function compositeContainTexture(url, aspect, backingColorHex, warnLabel) {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
-  canvas.height = Math.round(canvas.width / panelAspect);
+  canvas.height = Math.round(canvas.width / aspect);
   const ctx = canvas.getContext('2d');
-  const backing = '#' + panel.backingColor.toString(16).padStart(6, '0');
+  const backing = '#' + backingColorHex.toString(16).padStart(6, '0');
 
   function paintBacking() {
     ctx.fillStyle = backing;
@@ -110,7 +115,7 @@ function buildImageTexture(url) {
     // always visible — the other axis gets letterboxed with the backing
     // color rather than the image being cropped.
     let drawW, drawH;
-    if (imgAspect > panelAspect) {
+    if (imgAspect > aspect) {
       drawW = canvas.width;
       drawH = drawW / imgAspect;
     } else {
@@ -122,7 +127,7 @@ function buildImageTexture(url) {
     tex.needsUpdate = true;
   };
   img.onerror = (err) => {
-    console.warn('[BillboardMedia] failed to load image creative', url, err);
+    console.warn('[BillboardMedia] failed to load ' + (warnLabel || 'image') + ' creative', url, err);
   };
   img.src = url;
 
@@ -132,8 +137,32 @@ function buildImageTexture(url) {
 /** The only entry point billboard-placement code (runner.js) should use. */
 BillboardMedia.getTexture = function (creative) {
   if (!creative || !creative.url) return this.getPlaceholder();
-  if (this._cache[creative.url]) return this._cache[creative.url];
-  const tex = creative.type === 'video' ? buildVideoTexture(creative.url) : buildImageTexture(creative.url);
-  this._cache[creative.url] = tex;
+  const panel = RunnerTheme.BILLBOARD;
+  const cacheKey = 'billboard|' + creative.url;
+  if (this._cache[cacheKey]) return this._cache[cacheKey];
+  const tex = creative.type === 'video'
+    ? buildVideoTexture(creative.url)
+    : compositeContainTexture(creative.url, panel.panelWidth / panel.panelHeight, panel.backingColor, 'billboard');
+  this._cache[cacheKey] = tex;
+  return tex;
+};
+
+/**
+ * Generic image-only entry point for anything outside the billboard system
+ * that wants a single contain-fit texture — e.g. brand.js's optional coin
+ * face image. `aspect` is width/height of the target surface (1 for a
+ * square/circular coin face); `backingColorHex` fills the letterboxed area,
+ * pass the same color the surface would otherwise be (e.g.
+ * RunnerBrand.collectibleColor) so a transparent-background logo blends in
+ * rather than showing a mismatched backing rectangle. Cached separately
+ * from billboard creatives (same url + different aspect/backing would
+ * otherwise collide on one cache entry).
+ */
+BillboardMedia.getImageTexture = function (url, aspect, backingColorHex) {
+  if (!url) return null;
+  const cacheKey = 'image|' + url + '|' + aspect + '|' + backingColorHex;
+  if (this._cache[cacheKey]) return this._cache[cacheKey];
+  const tex = compositeContainTexture(url, aspect, backingColorHex, 'coin');
+  this._cache[cacheKey] = tex;
   return tex;
 };

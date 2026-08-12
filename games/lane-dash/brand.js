@@ -19,10 +19,19 @@ const RunnerBrand = {
   // The collectible — today "coins". Renaming this updates every place the
   // word appears in the UI (HUD, bank-line, game-over, pause). Recoloring
   // updates both the HTML HUD dot (--rd-collectible-color) and the in-game
-  // 3D coin mesh (Mat.gold in assets.js is the fallback color if this is
-  // left unset — see applyBrandConfig()'s comment on why that split exists).
+  // 3D coin mesh (Mat.gold/Mat.coinFace in assets.js are the fallback color
+  // if this is left unset — see applyBrandConfig()'s comment on why the
+  // ring/face split exists).
   collectibleLabel: 'Coins',
   collectibleColor: 0xffd166,
+
+  // Optional: an image URL shown on the coin's flat face (the ring around
+  // it stays plain collectibleColor) — a sponsor logo instead of a plain
+  // gold disc. Leave null for the default plain-color coin. Composited
+  // "contain" fit (BillboardMedia.getImageTexture, engine/billboard-
+  // media.js) onto collectibleColor as the backing, so a transparent-
+  // background logo blends in rather than showing a mismatched square.
+  collectibleImageUrl: null,
 
   // Score / points.
   scoreLabel: 'Score',

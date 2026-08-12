@@ -87,6 +87,13 @@ const Mat = {
   sidewalk: new THREE.MeshLambertMaterial({ color: Palette.sidewalk }),
   grass: new THREE.MeshLambertMaterial({ color: Palette.grass }),
   gold: new THREE.MeshToonMaterial({ color: Palette.gold, emissive: 0x664400, emissiveIntensity: 0.15 }),
+  // Coin FACE only (the ring above stays `gold`) — split out so a sponsor
+  // image (RunnerBrand.collectibleImageUrl, see applyBrandConfig() in
+  // engine/runner.js) can be applied to just the flat face without also
+  // texturing the rim. MeshBasicMaterial (unlit) so a logo reads at its own
+  // brightness regardless of scene lighting, same reasoning as the
+  // billboard panel material.
+  coinFace: new THREE.MeshBasicMaterial({ color: Palette.gold }),
   glassDark: new THREE.MeshToonMaterial({ color: 0x1b1b2a }),
   tireBlack: new THREE.MeshToonMaterial({ color: 0x111111 }),
   lampGlow: new THREE.MeshBasicMaterial({
@@ -248,7 +255,11 @@ function buildBarrierGap() {
 // ---------------------------------------------------------------------------
 function buildCoin() {
   const group = new THREE.Group();
-  const coin = new THREE.Mesh(Geo.cylinder, Mat.gold);
+  // CylinderGeometry's default cap UVs place a square-ish image centered
+  // and circularly cropped onto the flat face — exactly what an optional
+  // logo image (coinFace's .map, see applyBrandConfig()) needs, with no
+  // extra geometry/UV work required here.
+  const coin = new THREE.Mesh(Geo.cylinder, Mat.coinFace);
   coin.scale.set(0.34, 0.07, 0.34);
   coin.rotation.z = Math.PI / 2;
   group.add(coin);

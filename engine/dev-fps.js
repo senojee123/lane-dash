@@ -34,11 +34,34 @@
    frame time go", since draw calls/triangles alone only show the GPU side
    and a CPU-bound bottleneck (e.g. a burst of work when a segment recycles)
    wouldn't show up there at all.
+
+   FREEZING, FOR SCREENSHOTTING: a live overlay is hard to screenshot at the
+   right moment (it's already moved on to the next window by the time you've
+   alt-tabbed to a capture tool), and once gameplay stops — e.g. right after
+   a crash — the play-only phases (player/scroll/recycle/collision) go
+   straight to 0 because they've genuinely stopped running, which reads as
+   "everything broke" rather than "the run ended." Two ways to freeze the
+   exact moment you want on screen instead:
+     - click the overlay any time to toggle freeze/resume yourself.
+     - call DevFPS.freeze() from game code right when something notable
+       happens (runner.js calls it from endGame(), so the overlay holds the
+       last live in-play numbers instead of drifting into post-crash idle
+       zeros).
+   While frozen, tick()/mark()/markStart() are all no-ops — the canvas and
+   text are left exactly as they were, nothing keeps changing underneath you
+   while you screenshot.
 ============================================================================ */
 const DevFPS = (function () {
   const params = new URLSearchParams(window.location.search);
   const enabled = params.has('debug') || params.has('fps');
-  if (!enabled) return { tick() {} };
+  // Every method the game calls unconditionally (attachRenderer, markStart,
+  // mark, tick, freeze, unfreeze) needs a no-op here — runner.js doesn't
+  // guard these calls behind the debug flag itself, so a normal player
+  // (no ?debug/?fps) would hit "DevFPS.whatever is not a function" and the
+  // game would fail to load at all if any of these were missing.
+  if (!enabled) {
+    return { attachRenderer() {}, markStart() {}, mark() {}, tick() {}, freeze() {}, unfreeze() {} };
+  }
 
   const HISTORY_SECONDS = 20;   // how far back the plot scrolls
   const MAX_FPS_AXIS = 70;      // fixed Y range (not auto-scaled) so plots
@@ -50,10 +73,11 @@ const DevFPS = (function () {
 
   const wrap = document.createElement('div');
   wrap.id = 'dev-fps';
+  wrap.title = 'Click to freeze/resume — freezing stops the overlay updating so you can screenshot a specific moment.';
   wrap.style.cssText = [
     'position:fixed', 'top:8px', 'left:8px', 'z-index:9999',
     'background:rgba(0,0,0,.7)', 'color:#7CFF9E', 'font:12px/1.4 monospace',
-    'padding:8px 10px', 'border-radius:6px', 'pointer-events:none',
+    'padding:8px 10px', 'border-radius:6px', 'cursor:pointer', 'user-select:none',
   ].join(';');
 
   const label = document.createElement('div');
@@ -87,6 +111,33 @@ const DevFPS = (function () {
   let phaseWorstMs = {};
   let phaseOrder = [];
   let lastMarkTime = null;
+  let frozen = false;
+
+  function freezeNow() {
+    if (frozen) return;
+    // Force an immediate draw of whatever has accumulated so far THIS
+    // window, rather than leaving whatever the last throttled redraw (up to
+    // REDRAW_INTERVAL_MS old) happened to show — freeze() is called right
+    // at the moment something notable happens, so the snapshot should
+    // reflect that moment as closely as possible.
+    const now = performance.now();
+    const elapsed = now - windowStart;
+    const fps = elapsed > 0 ? Math.round((windowFrames * 1000) / elapsed) : 0;
+    draw(now, fps, worstFrameMs);
+    frozen = true;
+    wrap.style.outline = '2px solid #ffcf33';
+    label.textContent = '[FROZEN — click to resume]\n' + label.textContent;
+  }
+
+  function unfreezeNow() {
+    if (!frozen) return;
+    frozen = false;
+    wrap.style.outline = 'none';
+  }
+
+  wrap.addEventListener('click', () => {
+    if (frozen) unfreezeNow(); else freezeNow();
+  });
 
   function yForFps(fps, h) {
     return h - Math.min(fps, MAX_FPS_AXIS) / MAX_FPS_AXIS * h;
@@ -138,15 +189,25 @@ const DevFPS = (function () {
   return {
     attachRenderer(r) { renderer = r; },
 
+    // Freeze the overlay exactly as it looks right now (no further updates
+    // until unfrozen, by click or by freeze()/unfreeze() again) — see the
+    // header's FREEZING section. Safe to call from game code at a moment
+    // worth capturing (runner.js calls this from endGame()).
+    freeze: freezeNow,
+    unfreeze: unfreezeNow,
+
     // Call at the very top of the main loop, before any per-frame work.
-    markStart() { lastMarkTime = performance.now(); },
+    markStart() {
+      if (frozen) return;
+      lastMarkTime = performance.now();
+    },
 
     // Call after each named phase of the main loop. Accumulates elapsed
     // time since the previous mark()/markStart() into that phase's bucket
     // — so call these in the same order every frame, immediately after
     // each phase actually finishes.
     mark(name) {
-      if (lastMarkTime === null) return;
+      if (frozen || lastMarkTime === null) return;
       const now = performance.now();
       const elapsedMs = now - lastMarkTime;
       lastMarkTime = now;
@@ -156,6 +217,7 @@ const DevFPS = (function () {
     },
 
     tick() {
+      if (frozen) return;
       const now = performance.now();
       const rawMs = now - lastTickTime;
       lastTickTime = now;

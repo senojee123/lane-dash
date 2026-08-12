@@ -565,6 +565,29 @@ function spawnBillboards(seg) {
   }
 }
 
+const STREETLIGHT_INTERVAL = RunnerTheme.STREETLIGHT_INTERVAL * TRACK_SCALE;
+
+// Same absolute-distance-keyed placement as spawnBillboards above — exactly
+// one streetlight lands per STREETLIGHT_INTERVAL regardless of where
+// segment-recycling boundaries fall, alternating sides deterministically by
+// index parity rather than a per-spawn coin flip (which could clump two on
+// the same side back to back, and reset its own pattern at every segment
+// boundary since each segment's old loop ran independently).
+function spawnStreetlights(seg) {
+  const segmentBase = -seg.group.position.z;
+  const startIdx = Math.ceil(segmentBase / STREETLIGHT_INTERVAL);
+  const endIdx = Math.ceil((segmentBase + SEGMENT_LENGTH) / STREETLIGHT_INTERVAL);
+  for (let idx = startIdx; idx < endIdx; idx++) {
+    const targetDistance = idx * STREETLIGHT_INTERVAL;
+    const localZ = segmentBase - targetDistance;
+    const side = (idx % 2 === 0) ? -1 : 1;
+    // The lamp arm extends along +X in the model's own space, so it has to be
+    // turned to face the road centre: poles on the RIGHT (+x) need a 180deg
+    // flip, poles on the LEFT (-x) need none.
+    addScenery(seg, SCENERY_KEYS.streetlight, side * (ROAD_WIDTH / 2 + 0.7), localZ, TRACK_SCALE, side < 0 ? 0 : Math.PI);
+  }
+}
+
 function spawnLaneLines(seg) {
   for (const x of LANE_DIVIDER_X) {
     for (let z = -LANE_DASH_PERIOD / 2; z > -SEGMENT_LENGTH; z -= LANE_DASH_PERIOD) {
@@ -580,14 +603,7 @@ function spawnScenery(seg) {
     spawnCityRow(seg, -1, row);
     spawnCityRow(seg, 1, row);
   }
-  // streetlights on the sidewalk strip between the road and the front row
-  for (let z = -2; z > -SEGMENT_LENGTH; z -= 11 + Math.random() * 5) {
-    const side = Math.random() < 0.5 ? -1 : 1;
-    // The lamp arm extends along +X in the model's own space, so it has to be
-    // turned to face the road centre: poles on the RIGHT (+x) need a 180deg
-    // flip, poles on the LEFT (-x) need none.
-    addScenery(seg, SCENERY_KEYS.streetlight, side * (ROAD_WIDTH / 2 + 0.7), z, TRACK_SCALE, side < 0 ? 0 : Math.PI);
-  }
+  spawnStreetlights(seg);
 }
 
 function spawnCoinLine(seg, lane, startLocalZ, count, height) {
@@ -992,13 +1008,25 @@ function applyBrandConfig() {
     bankLineText.textContent = collectible + ' × distance ' + RunnerBrand.multiplierLabel + ' = ' + score;
   }
   if (pauseLineLabel) pauseLineLabel.textContent = RunnerBrand.scoreLabel;
-  // In-game 3D coin mesh (Mat.gold, assets.js) follows the same color as the
-  // HTML HUD dot unless a reskin's Palette.gold was already tuned to match —
-  // this just makes sure a brand-set color actually reaches the 3D mesh too.
+  // In-game 3D coin mesh (Mat.gold/Mat.coinFace, assets.js) follows the same
+  // color as the HTML HUD dot unless a reskin's Palette.gold was already
+  // tuned to match — this just makes sure a brand-set color actually
+  // reaches the 3D mesh too.
   document.documentElement.style.setProperty(
     '--rd-collectible-color', '#' + RunnerBrand.collectibleColor.toString(16).padStart(6, '0')
   );
   if (typeof Mat !== 'undefined' && Mat.gold) Mat.gold.color.setHex(RunnerBrand.collectibleColor);
+  if (typeof Mat !== 'undefined' && Mat.coinFace) {
+    Mat.coinFace.color.setHex(RunnerBrand.collectibleColor);
+    // Square aspect (1) since the coin face reads as a circular medallion,
+    // not a wide billboard panel; backing = collectibleColor so a
+    // transparent-background logo blends into the coin rather than showing
+    // a mismatched letterbox rectangle. null clears back to the plain color.
+    Mat.coinFace.map = RunnerBrand.collectibleImageUrl
+      ? BillboardMedia.getImageTexture(RunnerBrand.collectibleImageUrl, 1, RunnerBrand.collectibleColor)
+      : null;
+    Mat.coinFace.needsUpdate = true;
+  }
   hudHigh.textContent = RunnerBrand.bestLabel + ': ' + Save.high;
 }
 applyBrandConfig();
