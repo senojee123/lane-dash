@@ -22,6 +22,11 @@ same way `touch-controls.js` already shared state with the old `game.js`.
   it doesn't change per reskin.
 - `runner.css` — structural CSS (layout, animation, HUD), themed via a
   handful of CSS custom properties a pack overrides in its own `index.html`.
+- `billboard-media.js` — `BillboardMedia.getTexture(creative)`: turns a
+  `{ type: 'image'|'video', url }` descriptor into a cached THREE.Texture
+  (video textures muted/looping/autoplaying), or a placeholder panel if
+  `creative` is missing/fails to load. Only depends on THREE, no game
+  knowledge — same media-loading code works for any content pack.
 
 ## What a content pack owns
 
@@ -37,6 +42,7 @@ pack. A new reskin is: copy that folder, then edit/replace:
 | `character.js` | Player rig/animation loading. Falls back to a procedural box character if it fails, so this is optional too |
 | `theme.js` | Every game-feel tuning number — speed, camera framing, track scale, scoring curve, city row layout, obstacle-class weights, rest-stretch cadence. Static per reskin, not meant to change live |
 | `brand.js` | Sponsor-controlled: the collectible's name + color, and the score/multiplier/best labels. This is the layer meant to be live-patchable later (see its header) — separate from `theme.js` on purpose |
+| `billboards.js` | Sponsor-controlled: `RunnerBillboards`, an array of `{ type, url }` ad creatives shown round-robin on the in-world billboards. Also live-patchable-later, same reasoning as `brand.js`. Billboard *placement* (how often, how far off the road) is `theme.js`'s `BILLBOARD` block instead — layout is game-feel, creatives are sponsor content |
 | `index.html` | Branding copy (title/subtitle/game-over text) and the CSS custom-property overrides for brand colors (`:root` block — see `engine/runner.css`'s header) |
 | `config.js` (gitignored, copy from `config.example.js`) | Supabase project URL/key + `SCORES_TABLE` for this deployment |
 
@@ -57,7 +63,12 @@ import:
   documented inline in `games/lane-dash/theme.js`; `OBSTACLE_KEYS` and
   `SCENERY_KEYS` are the two places genre mechanics touch your specific
   `AssetRegistry` key names, so rename/add obstacle or scenery types there,
-  never in `runner.js`.
+  never in `runner.js`. `SCENERY_KEYS.billboard` must resolve to an
+  `AssetRegistry` entry whose built mesh tags its ad panel at
+  `group.userData.panel` (see `buildBillboard()` in `games/lane-dash/assets.js`)
+  — that's how `runner.js` finds the mesh to retexture per instance.
+- `RunnerBillboards` (your `billboards.js`) — optional; an empty/missing
+  array just means every billboard slot shows the placeholder panel.
 
 ## Script load order (index.html)
 

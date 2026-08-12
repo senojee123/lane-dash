@@ -102,13 +102,34 @@ const RunnerTheme = {
     { setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low' },
   ],
 
-  // AssetRegistry keys for the two pieces of scenery the track generator
-  // places itself (as opposed to CityModels' building manifest). A reskin
-  // that renames/replaces these primitives in its own assets.js only needs
-  // to update the keys here — engine/runner.js never hardcodes them.
+  // AssetRegistry keys for the pieces of scenery the track generator places
+  // itself (as opposed to CityModels' building manifest). A reskin that
+  // renames/replaces these primitives in its own assets.js only needs to
+  // update the keys here — engine/runner.js never hardcodes them.
   SCENERY_KEYS: {
     streetlight: 'streetlight',
     laneDash: 'lane_dash',
+    billboard: 'billboard',
+  },
+
+  // ---- billboards ------------------------------------------------------
+  // WHICH images/videos actually show is sponsor content, see billboards.js
+  // (RunnerBillboards) — this is placement only. One billboard slot is
+  // placed every `interval` of track (pre-scale, like REST_INTERVAL —
+  // engine/runner.js multiplies by TRACK_SCALE), alternating sides, keyed
+  // off absolute distance (not per-segment randomness) so a slot lands
+  // exactly once regardless of where segment-recycling boundaries happen to
+  // fall — same technique as the breather-stretch cadence above.
+  //
+  // `setback` is a FLAT offset beyond ROAD_WIDTH/2, deliberately NOT
+  // multiplied by TRACK_SCALE — same convention as the streetlight's own
+  // hardcoded 0.7 in engine/runner.js's spawnScenery(). It has to stay
+  // comfortably under CITY_ROWS[0].setback (6.4, itself unscaled) or the
+  // panel ends up planted inside the first building row; 1.0 puts it just
+  // past the streetlights' own 5.7 band with room to spare.
+  BILLBOARD: {
+    interval: 90,
+    setback: 1.0,
   },
 
   // ---- breather stretches ---------------------------------------------------

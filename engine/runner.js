@@ -513,6 +513,52 @@ const LANE_DASH_PERIOD = LANE_DASH_LENGTH + LANE_DASH_GAP;
 
 const SCENERY_KEYS = RunnerTheme.SCENERY_KEYS;
 
+// ---------------------------------------------------------------------------
+// BILLBOARDS — ad slots always exist in the world (see theme.js's
+// RunnerTheme.BILLBOARD comment for why); RunnerBillboards (billboards.js)
+// is optional and only decides what's ON them.
+// ---------------------------------------------------------------------------
+const BILLBOARD_INTERVAL = RunnerTheme.BILLBOARD.interval * TRACK_SCALE;
+const BILLBOARD_SETBACK = RunnerTheme.BILLBOARD.setback; // flat offset, not TRACK_SCALE'd — see theme.js
+const HAS_BILLBOARD_CREATIVES = typeof RunnerBillboards !== 'undefined' && RunnerBillboards.length > 0;
+
+function addBillboard(seg, x, localZ, rotY, creative) {
+  const mesh = MeshPool.acquire(SCENERY_KEYS.billboard);
+  mesh.position.set(x, 0, localZ);
+  mesh.scale.setScalar(TRACK_SCALE);
+  mesh.rotation.y = rotY;
+  // Reassigned on every placement (pooled instances keep whatever texture
+  // they last showed otherwise) — mirrors how addObstacle resets scale on
+  // every reacquire rather than trusting the pool's leftover state.
+  const panel = mesh.userData.panel;
+  if (panel) {
+    panel.material.map = BillboardMedia.getTexture(creative);
+    panel.material.needsUpdate = true;
+  }
+  seg.group.add(mesh);
+  seg.scenery.push(mesh);
+}
+
+// Keyed off absolute layout distance rather than a per-segment scan (like
+// isRestStretch above), so a billboard slot lands exactly once per
+// BILLBOARD_INTERVAL regardless of where segment-recycling boundaries land —
+// no double-placement, no gaps. `idx` also seeds a stable round-robin pick
+// across RunnerBillboards, so consecutive slots cycle creatives rather than
+// each independently re-rolling (and all landing on the same one by chance).
+function spawnBillboards(seg) {
+  const segmentBase = -seg.group.position.z;
+  const startIdx = Math.ceil(segmentBase / BILLBOARD_INTERVAL);
+  const endIdx = Math.ceil((segmentBase + SEGMENT_LENGTH) / BILLBOARD_INTERVAL);
+  for (let idx = startIdx; idx < endIdx; idx++) {
+    if (idx <= 0) continue; // no billboard right at the very start of the run
+    const targetDistance = idx * BILLBOARD_INTERVAL;
+    const localZ = segmentBase - targetDistance;
+    const side = (idx % 2 === 0) ? -1 : 1;
+    const creative = HAS_BILLBOARD_CREATIVES ? RunnerBillboards[(idx - 1) % RunnerBillboards.length] : null;
+    addBillboard(seg, side * (ROAD_WIDTH / 2 + BILLBOARD_SETBACK), localZ, side < 0 ? 0 : Math.PI, creative);
+  }
+}
+
 function spawnLaneLines(seg) {
   for (const x of LANE_DIVIDER_X) {
     for (let z = -LANE_DASH_PERIOD / 2; z > -SEGMENT_LENGTH; z -= LANE_DASH_PERIOD) {
@@ -523,6 +569,7 @@ function spawnLaneLines(seg) {
 
 function spawnScenery(seg) {
   spawnLaneLines(seg);
+  spawnBillboards(seg);
   for (const row of CITY_ROWS) {
     spawnCityRow(seg, -1, row);
     spawnCityRow(seg, 1, row);

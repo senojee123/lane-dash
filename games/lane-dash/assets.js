@@ -345,6 +345,54 @@ function buildStreetlight() {
   return group;
 }
 
+// Roadside ad billboard: two support poles + a frame + a panel that
+// engine/runner.js retextures per instance with a sponsor creative (see
+// engine/billboard-media.js). The panel's readable faces are its ±X sides —
+// same "faces +X in local space" convention buildStreetlight() documents
+// above, so runner.js's left/right placement flip (0 / PI around Y) works
+// identically for both.
+//
+// Built from thin boxes rather than a plane, matching every other primitive
+// in this file — the box's ±X faces carry the texture, the barely-visible
+// edges are an acceptable tradeoff for staying consistent with the rest of
+// the pack's geometry style.
+function buildBillboard() {
+  const group = new THREE.Group();
+  const poleHeight = 1.6;
+  const panelWidth = 4.4;
+  const panelHeight = 2.6;
+
+  const poleL = new THREE.Mesh(Geo.cylinder, Mat.pole);
+  poleL.scale.set(0.13, poleHeight, 0.13);
+  poleL.position.set(0, poleHeight / 2, -panelWidth / 2 + 0.35);
+  group.add(poleL);
+  const poleR = poleL.clone();
+  poleR.position.z = panelWidth / 2 - 0.35;
+  group.add(poleR);
+
+  // frame: a hair larger than the panel all around, so its edge reads as a
+  // border rather than exactly overlapping the panel's own thin edge faces
+  const frame = new THREE.Mesh(Geo.box, Mat.pole);
+  frame.scale.set(0.1, panelHeight + 0.3, panelWidth + 0.3);
+  frame.position.set(0, poleHeight + panelHeight / 2, 0);
+  group.add(frame);
+
+  // ad panel — MeshBasicMaterial so the creative reads at the texture's own
+  // brightness regardless of scene lighting (like a lit screen/print),
+  // DoubleSide so it's never blank from the rare angle it's seen from
+  // behind. Starts on the shared placeholder texture; engine/runner.js
+  // assigns the real creative (or leaves the placeholder) at spawn time —
+  // see assignBillboardCreative().
+  const panelMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+  const panel = new THREE.Mesh(Geo.box, panelMat);
+  panel.scale.set(0.08, panelHeight, panelWidth);
+  panel.position.set(0.09, poleHeight + panelHeight / 2, 0);
+  group.add(panel);
+
+  group.userData.panel = panel;
+  return group;
+}
+
 // Lane divider dash — one short bright stripe painted flat on the road. The
 // generator lays a row of these down each scrolling segment (with gaps
 // between them) so they read as scrolling dashes, same as any highway lane
@@ -415,5 +463,13 @@ const AssetRegistry = {
     type: 'primitive',
     build: buildLaneDash,
     footprint: { width: 0.14, height: 0.015, depth: 1.6, yBase: 0 },
+  },
+  // Pure scenery, like streetlight/lane_dash above — never passed to
+  // addObstacle, so this footprint is unused (kept only for consistency
+  // with every other registry entry).
+  billboard: {
+    type: 'primitive',
+    build: buildBillboard,
+    footprint: { width: 1, height: 1, depth: 1, yBase: 0 },
   },
 };

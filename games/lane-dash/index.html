@@ -106,6 +106,9 @@
 <script src="https://unpkg.com/three@0.128.0/examples/js/curves/NURBSCurve.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<!-- Billboard image/video texture loading — only depends on THREE, so it's
+     safe to load this early alongside the other pure-engine utilities. -->
+<script src="../../engine/billboard-media.js"></script>
 
 <!-- CONTENT PACK (this reskin's theme) vs ENGINE (generic, reused by every
      reskin) — see engine/asset-registry.js's header for the full load-order
@@ -126,9 +129,11 @@
 <!-- This pack's tuning knobs (speed, camera, track scale, obstacle mix, ...)
      — the thing a reskin actually edits to make Lane Dash feel different. -->
 <script src="theme.js"></script>
-<!-- Sponsor-controlled branding (labels/color) — see brand.js's header for
-     why this is a separate file from theme.js. -->
+<!-- Sponsor-controlled branding (labels/color, and billboard ad creatives)
+     — see brand.js's and billboards.js's headers for why these are
+     separate files from theme.js. -->
 <script src="brand.js"></script>
+<script src="billboards.js"></script>
 <script src="../../engine/runner.js"></script>
 <script src="../../engine/touch-controls.js"></script>
 </body>
