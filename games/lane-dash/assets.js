@@ -359,8 +359,11 @@ function buildStreetlight() {
 function buildBillboard() {
   const group = new THREE.Group();
   const poleHeight = 1.6;
-  const panelWidth = 4.4;
-  const panelHeight = 2.6;
+  // Read from theme.js, not hardcoded here, so this geometry and
+  // billboard-media.js's image-compositing aspect ratio can never drift
+  // out of sync with each other — see RunnerTheme.BILLBOARD's comment.
+  const panelWidth = RunnerTheme.BILLBOARD.panelWidth;
+  const panelHeight = RunnerTheme.BILLBOARD.panelHeight;
 
   const poleL = new THREE.Mesh(Geo.cylinder, Mat.pole);
   poleL.scale.set(0.13, poleHeight, 0.13);
@@ -382,7 +385,7 @@ function buildBillboard() {
   // DoubleSide so it's never blank from the rare angle it's seen from
   // behind. Starts on the shared placeholder texture; engine/runner.js
   // assigns the real creative (or leaves the placeholder) at spawn time —
-  // see assignBillboardCreative().
+  // see addBillboard() in engine/runner.js.
   const panelMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
   const panel = new THREE.Mesh(Geo.box, panelMat);
   panel.scale.set(0.08, panelHeight, panelWidth);

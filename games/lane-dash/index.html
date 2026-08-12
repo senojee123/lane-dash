@@ -106,8 +106,9 @@
 <script src="https://unpkg.com/three@0.128.0/examples/js/curves/NURBSCurve.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<!-- Billboard image/video texture loading — only depends on THREE, so it's
-     safe to load this early alongside the other pure-engine utilities. -->
+<!-- Billboard image/video texture loading — safe to load this early
+     alongside the other pure-engine utilities; its one reference to
+     RunnerTheme (theme.js, loaded later) is lazy, see its own header. -->
 <script src="../../engine/billboard-media.js"></script>
 
 <!-- CONTENT PACK (this reskin's theme) vs ENGINE (generic, reused by every

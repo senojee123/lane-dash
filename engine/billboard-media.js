@@ -6,9 +6,12 @@
    of each spawning its own. No content-pack knowledge lives here — only
    RunnerBillboards (this pack's billboards.js) supplies what plays.
 
-   Depends only on THREE (loaded via the CDN <script> tags in index.html),
-   so it's safe to load immediately after those and before any content-pack
-   script — nothing here reads AssetRegistry/Palette/etc.
+   Depends on THREE (loaded via the CDN <script> tags in index.html) and,
+   for image creatives, RunnerTheme.BILLBOARD's panel aspect ratio/backing
+   color (theme.js) — read lazily inside buildImageTexture(), only once a
+   billboard actually spawns, long after every script has loaded, so this
+   file itself is still safe to load early/before the content pack's own
+   scripts despite that reference. Nothing here reads AssetRegistry/Palette.
 
    Texture creation is synchronous from the caller's side: a Texture/
    VideoTexture object is created and returned immediately, and its
@@ -71,11 +74,58 @@ function buildVideoTexture(url) {
   return new THREE.VideoTexture(video);
 }
 
+/**
+ * "Contain" fit: composites the loaded image onto a canvas sized to the
+ * panel's own aspect ratio (RunnerTheme.BILLBOARD.panelWidth/panelHeight),
+ * scaled to fit fully inside without cropping or stretching, centered, on a
+ * solid backing color. Without this a logo — square, portrait, whatever its
+ * native shape — would just be stretched to fill the panel's wide rectangle
+ * and read as smeared/distorted. Returns the canvas texture immediately
+ * (blank, backing-colored) and repaints it once the image has actually
+ * loaded, same lazy-upgrade shape as every other async asset in this
+ * project (ModelCache, character.js's clips, ...).
+ */
 function buildImageTexture(url) {
-  const tex = new THREE.TextureLoader().load(url, undefined, undefined, (err) => {
-    console.warn('[BillboardMedia] failed to load image creative', url, err);
-  });
+  const panel = RunnerTheme.BILLBOARD;
+  const panelAspect = panel.panelWidth / panel.panelHeight;
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = Math.round(canvas.width / panelAspect);
+  const ctx = canvas.getContext('2d');
+  const backing = '#' + panel.backingColor.toString(16).padStart(6, '0');
+
+  function paintBacking() {
+    ctx.fillStyle = backing;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  paintBacking();
+  const tex = new THREE.CanvasTexture(canvas);
   if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    const imgAspect = img.naturalWidth / img.naturalHeight;
+    // Scale to whichever axis is the tighter fit, so the whole image is
+    // always visible — the other axis gets letterboxed with the backing
+    // color rather than the image being cropped.
+    let drawW, drawH;
+    if (imgAspect > panelAspect) {
+      drawW = canvas.width;
+      drawH = drawW / imgAspect;
+    } else {
+      drawH = canvas.height;
+      drawW = drawH * imgAspect;
+    }
+    paintBacking();
+    ctx.drawImage(img, (canvas.width - drawW) / 2, (canvas.height - drawH) / 2, drawW, drawH);
+    tex.needsUpdate = true;
+  };
+  img.onerror = (err) => {
+    console.warn('[BillboardMedia] failed to load image creative', url, err);
+  };
+  img.src = url;
+
   return tex;
 }
 

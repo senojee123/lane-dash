@@ -114,12 +114,14 @@ const RunnerTheme = {
 
   // ---- billboards ------------------------------------------------------
   // WHICH images/videos actually show is sponsor content, see billboards.js
-  // (RunnerBillboards) — this is placement only. One billboard slot is
-  // placed every `interval` of track (pre-scale, like REST_INTERVAL —
+  // (RunnerBillboards) — this is placement/sizing only. One billboard slot
+  // is placed every `interval` of track (pre-scale, like REST_INTERVAL —
   // engine/runner.js multiplies by TRACK_SCALE), alternating sides, keyed
   // off absolute distance (not per-segment randomness) so a slot lands
   // exactly once regardless of where segment-recycling boundaries happen to
-  // fall — same technique as the breather-stretch cadence above.
+  // fall — same technique as the breather-stretch cadence above. At 40
+  // (pre-scale) the first billboard lands around the 50-unit mark, roughly
+  // 3-4 seconds into a run — tuned to be found quickly, not just eventually.
   //
   // `setback` is a FLAT offset beyond ROAD_WIDTH/2, deliberately NOT
   // multiplied by TRACK_SCALE — same convention as the streetlight's own
@@ -127,9 +129,22 @@ const RunnerTheme = {
   // comfortably under CITY_ROWS[0].setback (6.4, itself unscaled) or the
   // panel ends up planted inside the first building row; 1.0 puts it just
   // past the streetlights' own 5.7 band with room to spare.
+  //
+  // `panelWidth`/`panelHeight` (world units, pre-scale) size BOTH the actual
+  // 3D panel (buildBillboard() in assets.js) and the aspect ratio
+  // billboard-media.js composites image creatives into — the two files stay
+  // in sync only because both read these same numbers, never their own
+  // hardcoded copies. `backingColor` fills the panel behind a "contain"-fit
+  // image (see billboard-media.js) so a logo — square, portrait, whatever
+  // its native shape — sits centered and undistorted instead of being
+  // stretched to fill a wide rectangle; default white suits a dark logo,
+  // flip it dark for a light-colored one.
   BILLBOARD: {
-    interval: 90,
+    interval: 40,
     setback: 1.0,
+    panelWidth: 4.4,
+    panelHeight: 2.6,
+    backingColor: 0xffffff,
   },
 
   // ---- breather stretches ---------------------------------------------------
