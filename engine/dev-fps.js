@@ -26,6 +26,14 @@
    draw-call count is usually the real story behind a frame-time problem,
    and this is the direct, no-guessing way to see it instead of inferring it
    from FPS alone.
+
+   Optionally sprinkle DevFPS.markStart() at the top of the main loop and
+   DevFPS.mark('label') after each named phase (player update, track
+   scroll/recycle, collision, animation, render, ...) to get a per-phase
+   average-ms breakdown — this is what actually answers "where does the
+   frame time go", since draw calls/triangles alone only show the GPU side
+   and a CPU-bound bottleneck (e.g. a burst of work when a segment recycles)
+   wouldn't show up there at all.
 ============================================================================ */
 const DevFPS = (function () {
   const params = new URLSearchParams(window.location.search);
@@ -71,6 +79,15 @@ const DevFPS = (function () {
   let lastTickTime = performance.now();
   let renderer = null;
 
+  // Per-phase timing: accumulated ms per named phase across the current
+  // report window, plus each phase's single worst individual sample in
+  // that window (an average can hide an occasional spike the same way an
+  // average FPS can — see the header's note on worst-frame vs average).
+  let phaseMs = {};
+  let phaseWorstMs = {};
+  let phaseOrder = [];
+  let lastMarkTime = null;
+
   function yForFps(fps, h) {
     return h - Math.min(fps, MAX_FPS_AXIS) / MAX_FPS_AXIS * h;
   }
@@ -108,11 +125,36 @@ const DevFPS = (function () {
       text += '\ndraw calls ' + info.render.calls + '   triangles ' + info.render.triangles.toLocaleString();
       text += '\ngeometries ' + info.memory.geometries + '   textures ' + info.memory.textures;
     }
+    if (phaseOrder.length && windowFrames > 0) {
+      text += '\n--- avg ms/frame (worst) ---';
+      phaseOrder.forEach((name) => {
+        const avg = phaseMs[name] / windowFrames;
+        text += '\n' + name + ': ' + avg.toFixed(2) + ' (' + phaseWorstMs[name].toFixed(1) + ')';
+      });
+    }
     label.textContent = text;
   }
 
   return {
     attachRenderer(r) { renderer = r; },
+
+    // Call at the very top of the main loop, before any per-frame work.
+    markStart() { lastMarkTime = performance.now(); },
+
+    // Call after each named phase of the main loop. Accumulates elapsed
+    // time since the previous mark()/markStart() into that phase's bucket
+    // — so call these in the same order every frame, immediately after
+    // each phase actually finishes.
+    mark(name) {
+      if (lastMarkTime === null) return;
+      const now = performance.now();
+      const elapsedMs = now - lastMarkTime;
+      lastMarkTime = now;
+      if (!(name in phaseMs)) { phaseMs[name] = 0; phaseWorstMs[name] = 0; phaseOrder.push(name); }
+      phaseMs[name] += elapsedMs;
+      phaseWorstMs[name] = Math.max(phaseWorstMs[name], elapsedMs);
+    },
+
     tick() {
       const now = performance.now();
       const rawMs = now - lastTickTime;
@@ -133,6 +175,9 @@ const DevFPS = (function () {
         windowFrames = 0;
         worstFrameMs = 0;
         windowStart = now;
+        phaseMs = {};
+        phaseWorstMs = {};
+        phaseOrder.forEach((name) => { phaseMs[name] = 0; phaseWorstMs[name] = 0; });
       }
     },
   };

@@ -1425,6 +1425,7 @@ function animateCoins(dt) {
 function tick() {
   requestAnimationFrame(tick);
   const dt = Math.min(0.05, clock.getDelta());
+  DevFPS.markStart(); // no-op unless ?debug/?fps — see engine/dev-fps.js
 
   // Paused: drain the clock so resuming doesn't see one giant delta, but
   // touch nothing else — no physics, no animation, no re-render. The last
@@ -1433,30 +1434,41 @@ function tick() {
 
   if (Game.state === 'playing') {
     updatePlayer(dt);
+    DevFPS.mark('player');
 
     const moveDelta = Game.speed * dt;
     for (const seg of segments) seg.group.position.z += moveDelta;
+    DevFPS.mark('scroll');
     recycleSegmentIfNeeded();
+    DevFPS.mark('recycle'); // the suspected burst-of-work phase — new buildings/
+                             // obstacles/billboards spawn here whenever a
+                             // segment cycles back to the front of the track
     animateCoins(dt);
+    DevFPS.mark('coins');
 
     if (checkCollisions(moveDelta)) {
       triggerShake(0.4, 0.5);
       triggerFlash();
       endGame();
     }
+    DevFPS.mark('collision');
 
     updateHUD();
+    DevFPS.mark('hud');
   } else {
     // idle drift on menus — moved on the RIG, so the framing stays identical
     cameraRig.position.x = Math.sin(performance.now() * 0.0003) * 0.6;
     Character.playIdle(); // idle loop on the start / game-over screens
+    DevFPS.mark('idle');
   }
 
   // advance the character's clips off the SAME delta driving the game
   Character.update(dt);
   updateParticles(dt);
   if (Game.state !== 'playing') updateCamera(dt); else updateCamera(dt);
+  DevFPS.mark('anim+camera');
   renderer.render(scene, camera);
+  DevFPS.mark('render');
   DevFPS.tick(); // no-op unless ?debug or ?fps is in the URL — see engine/dev-fps.js
 }
 
