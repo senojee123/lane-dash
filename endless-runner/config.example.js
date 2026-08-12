@@ -19,4 +19,10 @@
 window.GAME_CONFIG = {
   SUPABASE_URL: 'YOUR_SUPABASE_PROJECT_URL_HERE',
   SUPABASE_ANON_KEY: 'YOUR_SUPABASE_ANON_KEY_HERE',
+
+  // Table scores are inserted into on game-over. Must match SCORES_TABLE in
+  // leaderboard-display's config.js for the same deployment — running
+  // multiple deployments off one Supabase project is just a matter of
+  // giving each its own table name here.
+  SCORES_TABLE: 'scores',
 };

@@ -18,6 +18,10 @@ window.LEADERBOARD_CONFIG = {
   SUPABASE_URL: 'YOUR_SUPABASE_PROJECT_URL_HERE',
   SUPABASE_ANON_KEY: 'YOUR_SUPABASE_ANON_KEY_HERE',
 
+  // Table to read from. Must match SCORES_TABLE in the game's config.js for
+  // the same deployment.
+  SCORES_TABLE: 'scores',
+
   // How many top scores to display.
   TOP_N: 10,
 

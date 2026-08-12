@@ -10,11 +10,14 @@ build step, no game code.
    URL + public anon key (Supabase dashboard -> Project Settings -> API).
    `config.js` in this folder is already pre-filled with the same values the
    game uses, since it's the same Supabase project.
-2. Confirm the `scores` table has a public `SELECT` RLS policy — this page
-   never inserts/updates/deletes, so no other policies are needed. (Verified
-   working against the live project: the table currently has `player_name`
-   and `score` columns only, no `created_at` — the query and dedup key here
-   are based on `player_name` + `score`.)
+2. Confirm the table named by `SCORES_TABLE` (default `scores`) has a public
+   `SELECT` RLS policy — this page never inserts/updates/deletes, so no other
+   policies are needed. (Verified working against the live project: the
+   table currently has `player_name` and `score` columns only, no
+   `created_at` — the query and dedup key here are based on `player_name` +
+   `score`.) `SCORES_TABLE` must match the game's own `config.js` for the
+   same deployment — that's the one thing tying this display to a specific
+   game instance.
 3. Open `index.html` over `http://` (not `file://`) — e.g. via the repo's
    `serve.ps1`, or any static file server.
 

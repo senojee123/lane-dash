@@ -7,6 +7,10 @@
 
 const SUPABASE_URL = (window.GAME_CONFIG && window.GAME_CONFIG.SUPABASE_URL) || '';
 const SUPABASE_ANON_KEY = (window.GAME_CONFIG && window.GAME_CONFIG.SUPABASE_ANON_KEY) || '';
+// Defaults to 'scores' so existing deployments (whose config.js predates this
+// field) keep working unchanged; set SCORES_TABLE in config.js to run a
+// second deployment against a different table in the same Supabase project.
+const SCORES_TABLE = (window.GAME_CONFIG && window.GAME_CONFIG.SCORES_TABLE) || 'scores';
 
 // NOTE: deliberately NOT named `supabase`. The Supabase UMD library loaded in
 // index.html declares that identifier itself at its own top level, and
@@ -46,7 +50,7 @@ async function submitScore(playerName, score) {
   console.log('[Supabase] submitScore called', playerName, score);
   if (!gameSupabaseClient) return false; // not configured — see the warning logged above
   try {
-    const { error } = await gameSupabaseClient.from('scores').insert([
+    const { error } = await gameSupabaseClient.from(SCORES_TABLE).insert([
       { player_name: playerName, score },
     ]);
     if (error) { console.warn('[Supabase] submitScore failed:', error.message); return false; }

@@ -6,6 +6,7 @@
 const CFG = window.LEADERBOARD_CONFIG || {};
 const SUPABASE_URL = CFG.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = CFG.SUPABASE_ANON_KEY || '';
+const SCORES_TABLE = CFG.SCORES_TABLE || 'scores';
 const TOP_N = CFG.TOP_N || 10;
 const POLL_INTERVAL_MS = CFG.POLL_INTERVAL_MS || 7000; // 5000-10000 recommended
 const PAGE_RELOAD_INTERVAL_MS = CFG.PAGE_RELOAD_INTERVAL_MS || 6 * 60 * 60 * 1000;
@@ -123,7 +124,7 @@ async function fetchLeaderboard() {
   isFetching = true;
   try {
     const { data, error } = await client
-      .from('scores')
+      .from(SCORES_TABLE)
       .select('player_name, score')
       .order('score', { ascending: false })
       .limit(TOP_N);
