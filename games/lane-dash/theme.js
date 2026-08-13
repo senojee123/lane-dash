@@ -164,6 +164,14 @@ const RunnerTheme = {
       // rooftop fails" — a wide building that doesn't win the rooftop roll
       // can still get a banner too.
       bannerChance: 0.15,
+      // Minimum world-unit distance (buildings, in this case, since signs
+      // are building-mounted) since the last rooftop/banner sign before
+      // another can roll — buildings pack edge-to-edge with zero gap, so
+      // without this two neighbors could each independently win their
+      // rooftopBillboardChance/bannerChance roll and end up sharing a wall,
+      // reading as squeezed together. Same fix as openLotMinGap, for the
+      // building-mounted placement path instead of the open-lot one.
+      signMinGap: 14,
     },
     { setback: 15.5, maxWidth: 11, height: [10, 24], detail: 'low' },
     { setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low' },

@@ -498,6 +498,15 @@ function spawnCityRow(seg, side, row) {
   // segment's row is generated independently) — a rarer residual case than
   // the within-segment back-to-back one this actually fixes.
   let distanceSinceLastLot = Infinity;
+  // Same problem, same fix, for signs mounted on individual buildings
+  // (rooftop or banner) instead of lots: buildings pack edge-to-edge with
+  // zero gap between them, and rooftopBillboardChance/bannerChance are
+  // rolled independently per building, so two adjacent buildings could each
+  // win their roll with nothing but a shared wall between their signs —
+  // confirmed from a screenshot, not just reasoned about (this is the exact
+  // bug distanceSinceLastLot already fixed for open lots, just not
+  // generalized to this second, separate placement path when it was added).
+  let distanceSinceLastSign = Infinity;
 
   while (z > -SEGMENT_LENGTH + 0.05) {
     // Open lot: occasionally leave a gap instead of packing another
@@ -574,20 +583,24 @@ function spawnCityRow(seg, side, row) {
     // wall X by construction (center = setback + width/2, so inner edge is
     // always exactly setback), so this is correct regardless of how wide
     // the specific building turned out to be.
-    if (squash > 0.6 && row.rooftopBillboardChance && width >= ROOFTOP_BILLBOARD_MIN_WIDTH
+    const signAllowed = distanceSinceLastSign >= (row.signMinGap || 0);
+    if (squash > 0.6 && signAllowed && row.rooftopBillboardChance && width >= ROOFTOP_BILLBOARD_MIN_WIDTH
         && Math.random() < row.rooftopBillboardChance) {
       const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
       addBillboard(seg, SCENERY_KEYS.billboard, buildingX, buildingZ, creative, fp.height * s);
-    } else if (squash > 0.6 && row.bannerChance && Math.random() < row.bannerChance) {
+      distanceSinceLastSign = 0;
+    } else if (squash > 0.6 && signAllowed && row.bannerChance && Math.random() < row.bannerChance) {
       const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
       const bannerX = side * (row.setback - 0.1);
       const bannerY = Math.min(fp.height * s * 0.55, 4.5);
       const bannerAspect = RunnerTheme.BILLBOARD.bannerWidth / RunnerTheme.BILLBOARD.bannerHeight;
       addBillboard(seg, SCENERY_KEYS.billboardBanner, bannerX, buildingZ, creative, bannerY, bannerAspect);
+      distanceSinceLastSign = 0;
     }
 
     z -= depth;
     distanceSinceLastLot += depth;
+    distanceSinceLastSign += depth;
   }
 }
 
