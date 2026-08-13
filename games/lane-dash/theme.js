@@ -323,17 +323,22 @@ const RunnerTheme = {
   START_FLAG_COUNT: 5,
   START_FLAG_SPACING: 4.5,
   START_FLAG_FIRST_Z: 3,
-  // Lateral OFFSET added to the (already-scaled) ROAD_WIDTH/2 at the
-  // runner.js call site — same convention as (and now the same value as)
-  // the streetlight offset just below (ROAD_WIDTH/2 + 0.7), NOT a
-  // pre-scale value multiplied separately. The flag panel is 0.8 wide,
-  // centered on its pole (assets.js's buildFlagFactory) — the sidewalk gap
-  // between the road and row 0's own building line is only 1.4 units total
-  // (verified — the billboard system hit this exact constraint earlier),
-  // so 0.7 centers the panel with 0.3 units of real clearance on BOTH
-  // sides (5.7-0.4=5.3, 0.3 clear of the road at 5.0; 5.7+0.4=6.1, 0.3
-  // clear of the building line at 6.4) rather than favoring one side.
-  START_FLAG_X_OFFSET: 0.7,
+  // INSET subtracted from the (already-scaled) ROAD_WIDTH/2 at the runner.js
+  // call site — flags sit ON the road's own shoulder (just inside the road
+  // edge), not beside the road in the roadside sidewalk gap where the open-
+  // lot fence/buildings also compete for the same narrow 1.4-unit space.
+  // Moved here after a user report of buildings occasionally clipping into
+  // the roadside placement — the road itself is guaranteed clear of
+  // buildings/fences/lots (those only ever render outside the road edge),
+  // and segment 0 (the only place flags spawn) is separately guaranteed
+  // obstacle-free for its own full length, so this placement is
+  // structurally immune to anything else in the world, not just usually
+  // clear of it. Panel is 0.8 wide, centered: 5.0-0.5-0.4=4.1 near edge
+  // (0.1 clear of the true widest vehicle that could ever occupy the outer
+  // lane, 2.75+1.25=4.0 — cosmetic only, since segment 0 never actually
+  // has vehicles), 5.0-0.5+0.4=4.9 far edge (0.1 clear of the road
+  // boundary itself).
+  START_FLAG_X_INSET: 0.5,
 
   // Distance between streetlights (pre-scale — engine/runner.js multiplies
   // by TRACK_SCALE). Placed deterministically, alternating sides, keyed off

@@ -460,11 +460,20 @@ function addCoin(seg, lane, localZ, height) {
   seg.coins.push({ mesh, lane, localZ, height: y, collected: false });
 }
 
-function addScenery(seg, key, x, localZ, scaleMul, rotY, variant, depthSquash) {
+// depthSquash scales LOCAL Z, widthSquash scales LOCAL X — both BEFORE
+// rotation is applied (three.js composes an object's local transform as
+// scale-then-rotate), so which one actually squashes the along-track
+// (world Z) vs lateral (world X) size depends on this call's rotY. Most
+// callers use depthSquash with rotY=0 or Math.PI, where local Z stays
+// world Z — but spawnCityRow's building placement rotates 90 degrees
+// (buildings face the road) and needs the OTHER one; see its own comment
+// for why. widthSquash defaults to 1 (no-op) so every existing caller is
+// unaffected.
+function addScenery(seg, key, x, localZ, scaleMul, rotY, variant, depthSquash, widthSquash) {
   const mesh = MeshPool.acquire(key);
   mesh.position.set(x, 0, localZ);
   const s = scaleMul || 1;
-  mesh.scale.set(s, s, s * (depthSquash || 1));
+  mesh.scale.set(s * (widthSquash || 1), s, s * (depthSquash || 1));
   mesh.rotation.y = rotY || 0;
   if (variant) applyCityModelVariant(mesh, variant);
   seg.group.add(mesh);
@@ -668,20 +677,6 @@ function spawnCityRow(seg, side, row) {
     // how tall it ends up — some wide models just have a lower ceiling
     // than the row's nominal range, rather than being stretched past what
     // their own shape allows.
-    const maxHeightForModel = Math.min(row.height[1], (row.maxWidth / fp.width) * fp.height);
-    const minHeightForModel = Math.min(row.height[0], maxHeightForModel);
-    const targetH = minHeightForModel + Math.random() * (maxHeightForModel - minHeightForModel);
-    const s = Math.min(targetH / fp.height, row.maxWidth / fp.width);
-
-    const width = fp.width * s;
-    let depth = fp.depth * s;
-
-    // remaining already computed above (before the open-lot check) — z
-    // hasn't changed since then if execution reached here (the lot branch
-    // `continue`s before falling through to this building-placement path).
-    let squash = 1;
-    if (depth > remaining) { squash = remaining / depth; depth = remaining; }
-
     // Fixed, not randomized — a coin flip here meant roughly HALF of all
     // buildings showed the wrong face by design, not chance (user report:
     // "plenty of buildings have their fronts facing the wrong way"). Per
@@ -701,10 +696,44 @@ function spawnCityRow(seg, side, row) {
     // (`side * Math.PI / 2` instead of `-side * ...`), not re-introducing
     // randomness or guessing per-model again.
     const rotY = -side * (Math.PI / 2);
-    const buildingX = side * (row.setback + width / 2);
-    const buildingZ = z - depth / 2;
+
+    // A 90-degree rotation swaps which LOCAL axis maps to which WORLD
+    // axis — verified against three.js's actual rotation matrix, not
+    // assumed: rotY = +/-90 degrees zeroes local X's contribution to
+    // world X entirely, leaving only local Z. So post-rotation, fp.depth
+    // (local Z) is the building's true WORLD-X (lateral) footprint, and
+    // fp.width (local X) is its true WORLD-Z (along-track) footprint —
+    // the OPPOSITE of what their names suggest, and the opposite of what
+    // this code used before buildings were rotated to face the road.
+    // That earlier rotation change never got this math updated to match,
+    // which meant row.maxWidth (meant to stop buildings reaching the road
+    // or the row behind) was constraining the wrong dimension, and so was
+    // every placement/spacing formula below — caught from a user report
+    // of buildings occasionally clipping into things (the start-line
+    // flags) placed assuming the building line's lateral edge was exactly
+    // at row.setback, which it wasn't for any model where depth != width.
+    const maxHeightForModel = Math.min(row.height[1], (row.maxWidth / fp.depth) * fp.height);
+    const minHeightForModel = Math.min(row.height[0], maxHeightForModel);
+    const targetH = minHeightForModel + Math.random() * (maxHeightForModel - minHeightForModel);
+    const s = Math.min(targetH / fp.height, row.maxWidth / fp.depth);
+
+    const lateralExtent = fp.depth * s;  // world-X footprint, post-rotation
+    let trackExtent = fp.width * s;      // world-Z footprint, post-rotation
+
+    // remaining already computed above (before the open-lot check) — z
+    // hasn't changed since then if execution reached here (the lot branch
+    // `continue`s before falling through to this building-placement path).
+    // Squashing trackExtent (world-Z) to fit means squashing fp.width's
+    // LOCAL axis (X) — addScenery's widthSquash param, not depthSquash,
+    // now that this call rotates 90 degrees (see addScenery's own comment
+    // for why which one applies depends on the caller's rotation).
+    let squash = 1;
+    if (trackExtent > remaining) { squash = remaining / trackExtent; trackExtent = remaining; }
+
+    const buildingX = side * (row.setback + lateralExtent / 2);
+    const buildingZ = z - trackExtent / 2;
     addScenery(seg, key, buildingX, buildingZ, s, rotY,
-               randChoice(CityModels.VARIANT_KEYS), squash);
+               randChoice(CityModels.VARIANT_KEYS), 1, squash);
 
     // Rooftop billboard, occasional — row.rooftopBillboardChance is only set
     // on the row(s) short enough to still read from the chase camera (see
@@ -718,21 +747,25 @@ function spawnCityRow(seg, side, row) {
     // Three guards, each confirmed necessary from an actual screenshot, not
     // just reasoned about: squash > 0.6 skips a building squashed to a
     // near-invisible sliver at a segment boundary (tall enough to host a
-    // sign, but rendered too thin to actually see under it); width >=
-    // ROOFTOP_BILLBOARD_MIN_WIDTH skips a building narrower than the panel
-    // itself, which otherwise overhangs the roofline on both sides;
-    // distanceSinceLastSign >= row.signMinGap stops two adjacent buildings
-    // (packed edge-to-edge, zero gap) both independently winning this roll
-    // and ending up sharing a wall. A smaller building-facade "banner"
-    // format for buildings too narrow for this panel was tried and
-    // dropped — see theme.js's CITY_ROWS[0] comment for why.
+    // sign, but rendered too thin to actually see under it); lateralExtent
+    // >= ROOFTOP_BILLBOARD_MIN_WIDTH skips a building narrower than the
+    // panel itself, which otherwise overhangs the roofline on both sides
+    // (this guard compares against the roofline's actual WORLD-X span,
+    // hence lateralExtent — see its own comment above — not the old
+    // `width` var, which after the face-the-road rotation is the wrong
+    // dimension for this check); distanceSinceLastSign >= row.signMinGap
+    // stops two adjacent buildings (packed edge-to-edge, zero gap) both
+    // independently winning this roll and ending up sharing a wall. A
+    // smaller building-facade "banner" format for buildings too narrow for
+    // this panel was tried and dropped — see theme.js's CITY_ROWS[0]
+    // comment for why.
     // AssetRegistry[key].rooftopMountable is a verified whitelist (see
     // cityModels.js MANIFEST's comment) — most models are excluded outright
     // rather than assigned a guessed correction, because a stepped/L-shaped/
     // multi-mass roof can't be described by a single flat mount height at
     // every spawn scale; only models actually confirmed flat/safe stay
     // eligible.
-    if (squash > 0.6 && width >= ROOFTOP_BILLBOARD_MIN_WIDTH
+    if (squash > 0.6 && lateralExtent >= ROOFTOP_BILLBOARD_MIN_WIDTH
         && distanceSinceLastSign >= (row.signMinGap || 0)
         && AssetRegistry[key].rooftopMountable
         && row.rooftopBillboardChance && Math.random() < row.rooftopBillboardChance) {
@@ -745,9 +778,9 @@ function spawnCityRow(seg, side, row) {
       distanceSinceLastSign = 0;
     }
 
-    z -= depth;
-    distanceSinceLastLot += depth;
-    distanceSinceLastSign += depth;
+    z -= trackExtent;
+    distanceSinceLastLot += trackExtent;
+    distanceSinceLastSign += trackExtent;
     buildingsSinceLastLot++;
   }
 }
@@ -830,10 +863,13 @@ function spawnStreetlights(seg) {
 const START_FLAG_COUNT = RunnerTheme.START_FLAG_COUNT;
 const START_FLAG_SPACING = RunnerTheme.START_FLAG_SPACING * TRACK_SCALE;
 const START_FLAG_FIRST_Z = RunnerTheme.START_FLAG_FIRST_Z * TRACK_SCALE;
-// Lateral offset added directly to the already-scaled ROAD_WIDTH/2, same
-// convention as the streetlight offset just above (ROAD_WIDTH/2 + 0.7) —
-// see theme.js's START_FLAG_X_OFFSET comment for the clearance numbers.
-const START_FLAG_X = ROAD_WIDTH / 2 + RunnerTheme.START_FLAG_X_OFFSET;
+// INSET (subtracted, not added) from the already-scaled ROAD_WIDTH/2 —
+// flags sit ON the road's own shoulder, inside the road edge, not beside
+// it in the roadside gap where buildings/fences/lots also compete for
+// room. See theme.js's START_FLAG_X_INSET comment for the clearance
+// numbers and why this placement is structurally immune to anything else
+// in the world, not just usually clear of it.
+const START_FLAG_X = ROAD_WIDTH / 2 - RunnerTheme.START_FLAG_X_INSET;
 const START_FLAG_KEY = SCENERY_KEYS.flag;
 
 function spawnStartLine(seg) {
