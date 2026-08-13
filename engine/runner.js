@@ -508,12 +508,14 @@ function spawnCityRow(seg, side, row) {
     // on the row(s) short enough to still read from the chase camera (see
     // theme.js's CITY_ROWS comment). Deliberately NOT tied to the building's
     // own random rotY (that's just cosmetic building-facing variety) — the
-    // billboard gets its own road-facing rotation, same convention as every
-    // other billboard/banner in the game: oriented across the road toward
-    // where the player runs, not wherever the building happened to face.
+    // billboard gets a fixed rotation (0), same as every other billboard in
+    // the game: its face is built along Z (see buildBillboard() in
+    // assets.js), which is the direction the camera actually approaches
+    // from, so no left/right flip is needed regardless of which side of the
+    // road the building is on.
     if (row.rooftopBillboardChance && Math.random() < row.rooftopBillboardChance) {
       const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
-      addBillboard(seg, buildingX, buildingZ, side < 0 ? 0 : Math.PI, creative, fp.height * s);
+      addBillboard(seg, buildingX, buildingZ, 0, creative, fp.height * s);
     }
 
     z -= depth;
@@ -576,7 +578,12 @@ function spawnBillboards(seg) {
     const localZ = segmentBase - targetDistance;
     const side = (idx % 2 === 0) ? -1 : 1;
     const creative = HAS_BILLBOARD_CREATIVES ? RunnerBillboards[(idx - 1) % RunnerBillboards.length] : null;
-    addBillboard(seg, side * (ROAD_WIDTH / 2 + BILLBOARD_SETBACK), localZ, side < 0 ? 0 : Math.PI, creative);
+    // No left/right rotation flip needed — the panel faces +Z (back down the
+    // track, toward the camera) regardless of which side of the road it's
+    // on, unlike the streetlight's arm, which genuinely does need to reach
+    // laterally toward the road depending on its side. See buildBillboard()
+    // in assets.js for the fuller explanation.
+    addBillboard(seg, side * (ROAD_WIDTH / 2 + BILLBOARD_SETBACK), localZ, 0, creative);
   }
 }
 

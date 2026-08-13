@@ -358,13 +358,25 @@ function buildStreetlight() {
 
 // Roadside ad billboard: two support poles + a frame + a panel that
 // engine/runner.js retextures per instance with a sponsor creative (see
-// engine/billboard-media.js). The panel's readable faces are its ±X sides —
-// same "faces +X in local space" convention buildStreetlight() documents
-// above, so runner.js's left/right placement flip (0 / PI around Y) works
-// identically for both.
+// engine/billboard-media.js).
+//
+// FACING: the panel's readable faces are its ±Z sides, NOT ±X — this is the
+// direction the chase camera actually approaches from (it trails behind the
+// player looking down -Z the whole game; billboards scroll toward it along
+// Z regardless of which side of the road they're on). An earlier version of
+// this faced ±X instead (built to match buildStreetlight()'s "faces +X,
+// flip for the right side" convention just above), which is right for a
+// streetlight's arm — that has to reach laterally IN toward the road — but
+// wrong for a billboard's face, which needs to point back down the track
+// toward the camera, not sideways across it. Fixed: no more left/right
+// rotation flip needed at placement either (see spawnBillboards()/the
+// rooftop billboard call in engine/runner.js) — since the face is now along
+// Z and the camera always approaches from the same Z direction regardless
+// of which side of the road the billboard sits on, one fixed orientation
+// works for every placement.
 //
 // Built from thin boxes rather than a plane, matching every other primitive
-// in this file — the box's ±X faces carry the texture, the barely-visible
+// in this file — the box's ±Z faces carry the texture, the barely-visible
 // edges are an acceptable tradeoff for staying consistent with the rest of
 // the pack's geometry style.
 function buildBillboard() {
@@ -378,16 +390,16 @@ function buildBillboard() {
 
   const poleL = new THREE.Mesh(Geo.cylinder, Mat.pole);
   poleL.scale.set(0.13, poleHeight, 0.13);
-  poleL.position.set(0, poleHeight / 2, -panelWidth / 2 + 0.35);
+  poleL.position.set(-panelWidth / 2 + 0.35, poleHeight / 2, 0);
   group.add(poleL);
   const poleR = poleL.clone();
-  poleR.position.z = panelWidth / 2 - 0.35;
+  poleR.position.x = panelWidth / 2 - 0.35;
   group.add(poleR);
 
   // frame: a hair larger than the panel all around, so its edge reads as a
   // border rather than exactly overlapping the panel's own thin edge faces
   const frame = new THREE.Mesh(Geo.box, Mat.pole);
-  frame.scale.set(0.1, panelHeight + 0.3, panelWidth + 0.3);
+  frame.scale.set(panelWidth + 0.3, panelHeight + 0.3, 0.1);
   frame.position.set(0, poleHeight + panelHeight / 2, 0);
   group.add(frame);
 
@@ -399,8 +411,8 @@ function buildBillboard() {
   // see addBillboard() in engine/runner.js.
   const panelMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
   const panel = new THREE.Mesh(Geo.box, panelMat);
-  panel.scale.set(0.08, panelHeight, panelWidth);
-  panel.position.set(0.09, poleHeight + panelHeight / 2, 0);
+  panel.scale.set(panelWidth, panelHeight, 0.08);
+  panel.position.set(0, poleHeight + panelHeight / 2, 0.09);
   group.add(panel);
 
   group.userData.panel = panel;
