@@ -378,6 +378,33 @@ const segments = [];
 let difficulty = 0; // 0..1 ramps with score
 let carryGap = 0;   // spacing owed by the previous segment to the next one
 
+// Block-rhythm state for spawnCityRow's open-lot/rooftop-sign spacing —
+// PERSISTS across segment boundaries, same reasoning as carryGap above.
+// Without this, distanceSinceLastLot/buildingsSinceLastLot reset to their
+// initial values every ~30 units (one segment), and since a segment only
+// fits ~4-6 buildings on average, row.blockMax was rarely actually reached
+// before the reset wiped it out — the "forced lot" guarantee this
+// mechanism exists for almost never fired in practice, leaving lots to
+// occur only via the rare optional chance roll in the narrow window before
+// a segment ended. Confirmed via simulation, not assumed: modeling the
+// real per-segment reset dropped lot frequency from roughly 1 per 65
+// units (state carried forward) to roughly 1 per 900 units (reset every
+// segment) — enough that a normal playtest could easily see zero (user
+// report: "cant see a single carpark now"). Keyed per row+side (six
+// independent rhythms per segment: 3 CITY_ROWS x 2 sides), since a lot on
+// row 0's left has nothing to do with row 0's right or with row 1 at all.
+const lotRhythmState = new Map();
+function getLotRhythmState(row, side) {
+  let bySide = lotRhythmState.get(row);
+  if (!bySide) { bySide = {}; lotRhythmState.set(row, bySide); }
+  let state = bySide[side];
+  if (!state) {
+    state = { distanceSinceLastLot: Infinity, buildingsSinceLastLot: 0, distanceSinceLastSign: Infinity };
+    bySide[side] = state;
+  }
+  return state;
+}
+
 function makeSegmentSlot() {
   const group = new THREE.Group();
   scene.add(group);
@@ -556,33 +583,23 @@ function spawnCityRow(seg, side, row) {
   let z = 0;
   // World-unit distance covered (by buildings or other lots) since the last
   // open lot, so consecutive lots can't land back-to-back with nothing
-  // between them — every independent 0.15-chance roll was otherwise free to
-  // hit two or three times in a row. Starts large so a lot is allowed near
-  // a segment's own start. Doesn't carry across segment boundaries (each
-  // segment's row is generated independently) — a rarer residual case than
-  // the within-segment back-to-back one this actually fixes.
-  let distanceSinceLastLot = Infinity;
-  // Building-COUNT since the last lot, separate from the world-unit
-  // distanceSinceLastLot above: that one guards billboard sightline
-  // clearance (why it's measured in units), this one gives the row an
-  // actual block rhythm (why it's measured in buildings) — no gap allowed
-  // before row.blockMin buildings, one forced once row.blockMax is hit
-  // (still gated by distanceSinceLastLot too, so a run of unusually narrow
-  // buildings can't force a lot before there's real clearance for it).
-  // Without this, gaps were purely a per-building coin flip once far
-  // enough from the last one — usually fine, but nothing stopped a long
-  // unbroken run of buildings between hits, which is the literal "too
-  // close together, no layout rhythm" feedback this fixes.
-  let buildingsSinceLastLot = 0;
-  // Same problem, same fix, for rooftop signs mounted on individual
-  // buildings instead of lots: buildings pack edge-to-edge with zero gap
-  // between them, and rooftopBillboardChance is rolled independently per
-  // building, so two adjacent buildings could each win their roll with
-  // nothing but a shared wall between their signs — confirmed from a
-  // screenshot, not just reasoned about (this is the exact bug
-  // distanceSinceLastLot already fixed for open lots, just not generalized
-  // to this second, separate placement path).
-  let distanceSinceLastSign = Infinity;
+  // between them — every independent chance roll was otherwise free to hit
+  // two or three times in a row. Building-COUNT since the last lot is
+  // tracked separately: that one gives the row an actual block rhythm (no
+  // gap allowed before row.blockMin buildings, one forced once row.blockMax
+  // is hit, still gated by distanceSinceLastLot too so a run of unusually
+  // narrow buildings can't force a lot before there's real clearance for
+  // it). distanceSinceLastSign is the same fix for rooftop signs (buildings
+  // pack edge-to-edge with zero gap, so two adjacent buildings could each
+  // independently win rooftopBillboardChance and end up sharing a wall).
+  //
+  // All three PERSIST across segment boundaries via lotRhythmState (see its
+  // own comment, near carryGap) rather than resetting here every call —
+  // they used to reset every ~30 units, which silently broke row.blockMax's
+  // own guarantee (a segment rarely fits enough buildings to reach it
+  // before the reset wiped the count) and was the actual cause of a "can't
+  // see a single carpark" report.
+  const rhythm = getLotRhythmState(row, side);
 
   while (z > -SEGMENT_LENGTH + 0.05) {
     // Open lot: occasionally leave a gap instead of packing another
@@ -599,9 +616,9 @@ function spawnCityRow(seg, side, row) {
     // decision.
     const blockMin = row.blockMin || 0;
     const blockMax = row.blockMax || Infinity;
-    const distanceOk = distanceSinceLastLot >= (row.openLotMinGap || 0);
-    const blockRoomOk = buildingsSinceLastLot >= blockMin;
-    const blockForced = buildingsSinceLastLot >= blockMax;
+    const distanceOk = rhythm.distanceSinceLastLot >= (row.openLotMinGap || 0);
+    const blockRoomOk = rhythm.buildingsSinceLastLot >= blockMin;
+    const blockForced = rhythm.buildingsSinceLastLot >= blockMax;
     // remaining computed here, BEFORE deciding to open a lot at all — the
     // previous version only checked this after already committing to a lot
     // (Math.min(rawLotDepth, remaining) below), so a lot could still
@@ -652,8 +669,8 @@ function spawnCityRow(seg, side, row) {
         addBillboard(seg, SCENERY_KEYS.billboard, billboardX, billboardZ, creative);
       }
       z -= lotDepth;
-      distanceSinceLastLot = 0;
-      buildingsSinceLastLot = 0;
+      rhythm.distanceSinceLastLot = 0;
+      rhythm.buildingsSinceLastLot = 0;
       continue;
     }
 
@@ -766,7 +783,7 @@ function spawnCityRow(seg, side, row) {
     // every spawn scale; only models actually confirmed flat/safe stay
     // eligible.
     if (squash > 0.6 && lateralExtent >= ROOFTOP_BILLBOARD_MIN_WIDTH
-        && distanceSinceLastSign >= (row.signMinGap || 0)
+        && rhythm.distanceSinceLastSign >= (row.signMinGap || 0)
         && AssetRegistry[key].rooftopMountable
         && row.rooftopBillboardChance && Math.random() < row.rooftopBillboardChance) {
       const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
@@ -775,13 +792,13 @@ function spawnCityRow(seg, side, row) {
       // mount point down onto the model's actual flat roof surface.
       const mountHeight = fp.height * s * AssetRegistry[key].roofMountFraction;
       addBillboard(seg, SCENERY_KEYS.billboard, buildingX, buildingZ, creative, mountHeight);
-      distanceSinceLastSign = 0;
+      rhythm.distanceSinceLastSign = 0;
     }
 
     z -= trackExtent;
-    distanceSinceLastLot += trackExtent;
-    distanceSinceLastSign += trackExtent;
-    buildingsSinceLastLot++;
+    rhythm.distanceSinceLastLot += trackExtent;
+    rhythm.distanceSinceLastSign += trackExtent;
+    rhythm.buildingsSinceLastLot++;
   }
 }
 
@@ -1167,6 +1184,7 @@ function recycleSegmentIfNeeded() {
 
 function initTrack() {
   carryGap = 0;
+  lotRhythmState.clear();
   let z = 0;
   segments.forEach((seg, i) => {
     clearSegment(seg);
