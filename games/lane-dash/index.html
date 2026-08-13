@@ -98,20 +98,25 @@
   };
 </script>
 
+<!-- defer on every script below: lets the browser fetch all of them in
+     parallel instead of one at a time, while still guaranteeing they
+     execute in this exact document order afterward (same order as
+     un-deferred, just not blocking the parse/fetch of each other along the
+     way) — so the dependency chain these comments describe still holds. -->
 <!-- Three.js r128 (single dependency, no build step) -->
-<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script defer src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
 <!-- FBXLoader deps: fflate inflates binary FBX, NURBSCurve is a hard require -->
-<script src="https://unpkg.com/fflate@0.6.9/umd/index.js"></script>
-<script src="https://unpkg.com/three@0.128.0/examples/js/curves/NURBSUtils.js"></script>
-<script src="https://unpkg.com/three@0.128.0/examples/js/curves/NURBSCurve.js"></script>
-<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
-<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script defer src="https://unpkg.com/fflate@0.6.9/umd/index.js"></script>
+<script defer src="https://unpkg.com/three@0.128.0/examples/js/curves/NURBSUtils.js"></script>
+<script defer src="https://unpkg.com/three@0.128.0/examples/js/curves/NURBSCurve.js"></script>
+<script defer src="https://unpkg.com/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
+<script defer src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <!-- Billboard image/video texture loading — safe to load this early
      alongside the other pure-engine utilities; its one reference to
      RunnerTheme (theme.js, loaded later) is lazy, see its own header. -->
-<script src="../../engine/billboard-media.js"></script>
+<script defer src="../../engine/billboard-media.js"></script>
 <!-- Opt-in FPS overlay (?debug or ?fps in the URL) — no dependencies. -->
-<script src="../../engine/dev-fps.js"></script>
+<script defer src="../../engine/dev-fps.js"></script>
 
 <!-- CONTENT PACK (this reskin's theme) vs ENGINE (generic, reused by every
      reskin) — see engine/asset-registry.js's header for the full load-order
@@ -119,25 +124,25 @@
      entries, so it has to load before engine/asset-registry.js attaches the
      generic .create()/MeshPool machinery onto that same object; everything
      after that point just needs AssetRegistry + ModelCache to already exist. -->
-<script src="assets.js"></script>
-<script src="../../engine/asset-registry.js"></script>
-<script src="cityModels.js"></script>
-<script src="trafficVehicles.js"></script>
-<script src="character.js"></script>
+<script defer src="assets.js"></script>
+<script defer src="../../engine/asset-registry.js"></script>
+<script defer src="cityModels.js"></script>
+<script defer src="trafficVehicles.js"></script>
+<script defer src="character.js"></script>
 <!-- Config (see config.example.js) must load before both the Supabase CDN
      client and leaderboard-client.js, which reads window.GAME_CONFIG from it. -->
-<script src="config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="../../engine/leaderboard-client.js"></script>
+<script defer src="config.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script defer src="../../engine/leaderboard-client.js"></script>
 <!-- This pack's tuning knobs (speed, camera, track scale, obstacle mix, ...)
      — the thing a reskin actually edits to make Lane Dash feel different. -->
-<script src="theme.js"></script>
+<script defer src="theme.js"></script>
 <!-- Sponsor-controlled branding (labels/color, and billboard ad creatives)
      — see brand.js's and billboards.js's headers for why these are
      separate files from theme.js. -->
-<script src="brand.js"></script>
-<script src="billboards.js"></script>
-<script src="../../engine/runner.js"></script>
-<script src="../../engine/touch-controls.js"></script>
+<script defer src="brand.js"></script>
+<script defer src="billboards.js"></script>
+<script defer src="../../engine/runner.js"></script>
+<script defer src="../../engine/touch-controls.js"></script>
 </body>
 </html>
