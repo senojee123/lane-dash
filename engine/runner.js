@@ -574,7 +574,23 @@ function spawnCityRow(seg, side, row) {
       const rawLotDepth = row.openLotDepth[0] + Math.random() * (row.openLotDepth[1] - row.openLotDepth[0]);
       const lotDepth = Math.min(rawLotDepth, remaining);
       if (row.openLotPavementWidth) addParkingLot(seg, side, row, z, lotDepth);
-      if (row.openLotBillboardChance && Math.random() < row.openLotBillboardChance) {
+      // lotDepth is the ROLLED size clamped to whatever room is actually
+      // left in the segment (Math.min(rawLotDepth, remaining) above) — near
+      // a segment's tail end that clamp can shrink it well below
+      // row.openLotDepth's own minimum. billboardZ = (z - lotDepth) +
+      // openLotBillboardFarMargin only stays inside the lot (between its
+      // far edge and its near edge at z) once lotDepth is at least
+      // openLotBillboardFarMargin — with nothing past that, a small enough
+      // lotDepth pushes billboardZ past z, back into the PREVIOUS
+      // building's own space (buildings pack edge-to-edge with zero gap,
+      // so there's a building sitting exactly there). Confirmed from
+      // screenshots: a full ground-planted sign wedged into/against a
+      // building. +4 past the margin so the billboard also keeps real
+      // clearance from that near-edge building, not just barely inside the
+      // line — same "real margin, not a near-miss" bar as every other
+      // clearance number in this row's config.
+      const hasRoomForBillboard = lotDepth >= row.openLotBillboardFarMargin + 4;
+      if (row.openLotBillboardChance && hasRoomForBillboard && Math.random() < row.openLotBillboardChance) {
         // Far edge of the lot (z - lotDepth is the exact boundary shared
         // with the NEXT building; openLotBillboardFarMargin pulls back a
         // couple of units from that so it doesn't read as touching it) —
