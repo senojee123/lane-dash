@@ -136,13 +136,17 @@ const RunnerTheme = {
   CITY_ROWS: [
     {
       setback: 6.4, maxWidth: 9, height: [7, 16], detail: 'full',
-      // Raised from 0.12: only 9 of the 15 "full" building models are
-      // rooftopMountable now (cityModels.js MANIFEST — the other 6 have a
-      // stepped/multi-mass roof that floated a billboard at some spawn
-      // scale no matter how this fraction was tuned, so they're excluded
-      // outright instead of patched again). Bumped so sign density stays
-      // roughly where it was with the smaller eligible pool.
-      rooftopBillboardChance: 0.2,
+      // Raised again, 0.12 -> 0.2 -> 0.4: only 9 of the 15 "full" building
+      // models are rooftopMountable (cityModels.js MANIFEST — the other 6
+      // have a stepped/multi-mass roof, excluded outright rather than
+      // patched again), AND rooftop signs only ever land on BUILDINGS, not
+      // the open lots that now make up a bigger share of each row (this
+      // session's block-layout + carpark-frequency work) — those two
+      // filters compound, so 0.2 still read as sparse in practice (user:
+      // "only 5 in like 60s"). 0.4 is deliberately aggressive rather than a
+      // small bump, given how much the eligible surface has already
+      // shrunk from both directions.
+      rooftopBillboardChance: 0.4,
       // Lowered from 0.15, and blockMin/blockMax below raised from 2/4 to
       // 3/6 — the block-rhythm mechanism (loose blocks of buildings, then
       // a forced gap) was making lots feel too frequent overall (user
@@ -246,7 +250,11 @@ const RunnerTheme = {
       // read as cluttered rather than clean, even after fixing its spacing.
       // Only full-size panels with real, deliberately-chosen room (rooftop
       // here, freestanding in open lots below) are worth placing.
-      signMinGap: 14,
+      // Lowered 14 -> 10 alongside rooftopBillboardChance's bump above —
+      // still enough to stop two IMMEDIATE neighbors sharing a wall, just
+      // less conservative now that fewer buildings pass by per unit
+      // distance overall (open lots take up more of each row than before).
+      signMinGap: 10,
     },
     // Rows 1/2 previously had no open-lot config at all — 100% wall-to-wall
     // buildings, the biggest single contributor to the "too packed, no
