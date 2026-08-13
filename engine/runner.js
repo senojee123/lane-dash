@@ -641,7 +641,13 @@ function spawnCityRow(seg, side, row) {
         && distanceSinceLastSign >= (row.signMinGap || 0)
         && row.rooftopBillboardChance && Math.random() < row.rooftopBillboardChance) {
       const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
-      addBillboard(seg, SCENERY_KEYS.billboard, buildingX, buildingZ, creative, fp.height * s);
+      // fp.height*s is the model's full measured bounding-box top, which on
+      // a few models (see cityModels.js MANIFEST's roofMountFraction
+      // comment) is a chimney/antenna tip rather than the flat roof — the
+      // fraction (1 for every model that doesn't need it) pulls the mount
+      // point down onto the actual roof plateau instead.
+      const mountHeight = fp.height * s * AssetRegistry[key].roofMountFraction;
+      addBillboard(seg, SCENERY_KEYS.billboard, buildingX, buildingZ, creative, mountHeight);
       distanceSinceLastSign = 0;
     }
 

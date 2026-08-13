@@ -43,10 +43,19 @@ const CITY_MODEL_MANIFEST = {
   building_h: { file: 'building-h.glb', tier: 'full', footprint: { width: 4, height: 12, depth: 4, yBase: 0 } },
   building_i: { file: 'building-i.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
   building_j: { file: 'building-j.glb', tier: 'full', footprint: { width: 4, height: 16, depth: 4, yBase: 0 } },
-  building_k: { file: 'building-k.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
-  building_l: { file: 'building-l.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
-  building_m: { file: 'building-m.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
-  building_n: { file: 'building-n.glb', tier: 'full', footprint: { width: 4, height: 16, depth: 4, yBase: 0 } },
+  // roofMountFraction on these four: measured directly from each GLB's own
+  // geometry (vertex-height histogram, not guessed) — footprint.height is
+  // the model's FULL bounding-box top, which on these specific models is a
+  // chimney/antenna tip rather than the flat roof surface. A billboard
+  // mounted at footprint.height*roofMountFraction instead of footprint.height
+  // sits on the actual roof plateau below that tip. The other ten "full"
+  // buildings and all five skyscrapers measured with 0% gap between their
+  // bbox top and roof plateau (flat-topped) and need no correction, hence no
+  // field here — see spawnCityRow (engine/runner.js) for where this is read.
+  building_k: { file: 'building-k.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 }, roofMountFraction: 0.95 },
+  building_l: { file: 'building-l.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 }, roofMountFraction: 0.917 },
+  building_m: { file: 'building-m.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 }, roofMountFraction: 0.8 },
+  building_n: { file: 'building-n.glb', tier: 'full', footprint: { width: 4, height: 16, depth: 4, yBase: 0 }, roofMountFraction: 0.85 },
 
   // ---- skyscrapers (5) — tallest full-detail buildings ----
   building_skyscraper_a: { file: 'building-skyscraper-a.glb', tier: 'full', footprint: { width: 5, height: 22, depth: 5, yBase: 0 } },
@@ -101,6 +110,11 @@ Object.keys(CITY_MODEL_MANIFEST).forEach((key) => {
     path: MODEL_BASE_PATH + entry.file,
     footprint: entry.footprint,
     tier: entry.tier,
+    // Fraction of footprint.height that's the model's real roof plateau
+    // rather than a chimney/antenna tip — see MANIFEST's comment above.
+    // Defaults to 1 (mount at the full measured height, today's behavior)
+    // for every model that doesn't need the correction.
+    roofMountFraction: entry.roofMountFraction || 1,
   };
 });
 
