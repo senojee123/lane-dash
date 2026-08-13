@@ -148,14 +148,20 @@ const RunnerTheme = {
       openLotDepth: [8, 20],
       // Chance a given open lot also gets a billboard (not every real lot
       // has one — at 0.6 that's already ~40% of lots billboard-free), and
-      // how far past the row's own setback line it stands — setback(6.4) +
-      // 4 = X=10.4. Panel half-width (4.4/2 * TRACK_SCALE 1.25 = 2.75) puts
-      // its near edge at 7.65 (2.65 clear of the road at 5) and its far
-      // edge at 13.15 (2.35 clear of row 1 at 15.5) — real margin on both
-      // sides, worked out by hand, not a near-miss like the freestanding-
-      // in-the-sidewalk-gap attempt this replaced.
+      // how far past the row's own setback line it stands (lateral distance
+      // from the road — NOT the along-the-road far-edge placement below,
+      // a separate axis) — setback(6.4) + 2.5 = X=8.9. Panel half-width
+      // (4.4/2 * TRACK_SCALE 1.25 = 2.75) puts its near edge at 6.15 (1.15
+      // clear of the road at 5) and its far edge at 11.65 (3.85 clear of
+      // row 1 at 15.5), both comfortably inside the pavement's own X range
+      // (5.3-14.0) — real margin, checked by hand against all three before
+      // picking this value, not a near-miss like the freestanding-in-the-
+      // sidewalk-gap attempt this replaced. Was 4 (X=10.4); brought closer
+      // to the road on request, re-verifying clearance rather than just
+      // shrinking the number — 1.35 is the actual minimum before the panel
+      // clips the road, so this keeps real margin above that floor.
       openLotBillboardChance: 0.6,
-      openLotBillboardSetback: 4,
+      openLotBillboardSetback: 2.5,
       // Z placement within the lot: (far edge) + this margin, so the
       // billboard sits near the end of the lot furthest from whichever
       // building the player passes right before reaching it — see the
