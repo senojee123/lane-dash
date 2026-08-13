@@ -640,7 +640,24 @@ function spawnCityRow(seg, side, row) {
 
     // Scale to a target height, but clamp so a wide model can never grow
     // past this row's maxWidth and spill into the row (or road) in front.
-    const targetH = row.height[0] + Math.random() * (row.height[1] - row.height[0]);
+    // The height ROLL itself is also capped at whatever this specific
+    // model can reach without hitting that width clamp (maxHeightForModel)
+    // — rolling independently of a model's own proportions let a wide,
+    // short-in-its-own-right model (e.g. one whose raw footprint is much
+    // wider than tall) get assigned a tall target it structurally can't
+    // reach, rendering far shorter than intended with every architectural
+    // detail (doors, windows) squashed proportionally tiny relative to
+    // what the roll implied — confirmed from a screenshot ("tiny doorway"
+    // on a building that looked "scaled terribly small"). Capping the roll
+    // instead of the result means s = targetH/fp.height always now (the
+    // width term in the min() below never actually binds), so every
+    // building's own proportions stay internally consistent regardless of
+    // how tall it ends up — some wide models just have a lower ceiling
+    // than the row's nominal range, rather than being stretched past what
+    // their own shape allows.
+    const maxHeightForModel = Math.min(row.height[1], (row.maxWidth / fp.width) * fp.height);
+    const minHeightForModel = Math.min(row.height[0], maxHeightForModel);
+    const targetH = minHeightForModel + Math.random() * (maxHeightForModel - minHeightForModel);
     const s = Math.min(targetH / fp.height, row.maxWidth / fp.width);
 
     const width = fp.width * s;
@@ -650,8 +667,25 @@ function spawnCityRow(seg, side, row) {
     let squash = 1;
     if (depth > remaining) { squash = remaining / depth; depth = remaining; }
 
-    // only 0 / 180 degree turns, so depth stays aligned to z and the row stays tight
-    const rotY = Math.random() < 0.5 ? 0 : Math.PI;
+    // Fixed, not randomized — a coin flip here meant roughly HALF of all
+    // buildings showed the wrong face by design, not chance (user report:
+    // "plenty of buildings have their fronts facing the wrong way"). Per
+    // user direction, buildings face INWARD toward the road/lanes (like a
+    // real street — a building's front door always faces the street it's
+    // on, never lengthwise along it) rather than toward the camera like
+    // the billboards: left-side buildings (side -1) rotate to face +X,
+    // right-side (side +1) rotate to face -X. This assumes the model's own
+    // local "front" runs along its Z axis (the only axis the ORIGINAL
+    // random 0/Math.PI rotation ever chose between, before this fix — good
+    // evidence the front is a Z-axis thing, just not which Z direction) —
+    // checked and confirmed there's no reliable geometric asymmetry to
+    // detect programmatically which Z is actually front (likely a texture
+    // distinction, not a mesh-shape one), so this could still come out
+    // mirrored 180 degrees (doors facing away from the road instead of
+    // toward it). If so, the fix is negating this one expression
+    // (`side * Math.PI / 2` instead of `-side * ...`), not re-introducing
+    // randomness or guessing per-model again.
+    const rotY = -side * (Math.PI / 2);
     const buildingX = side * (row.setback + width / 2);
     const buildingZ = z - depth / 2;
     addScenery(seg, key, buildingX, buildingZ, s, rotY,
