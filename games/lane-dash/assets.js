@@ -421,6 +421,33 @@ function buildBillboard() {
   return group;
 }
 
+// Smaller, portrait-oriented ad banner — mounted on a building's face (see
+// spawnCityRow()'s bannerChance path in engine/runner.js), not freestanding
+// on the ground or sitting on a roof, so no poles: just a frame + panel,
+// same ±Z facing convention as buildBillboard() above and for the same
+// reason (the chase camera approaches along Z). Exists because
+// buildBillboard()'s panel is wider than a lot of row-0 buildings end up
+// being (see ROOFTOP_BILLBOARD_MIN_WIDTH's comment in runner.js) — this one
+// is narrow enough to fit essentially any of them.
+function buildBillboardBanner() {
+  const group = new THREE.Group();
+  const bannerWidth = RunnerTheme.BILLBOARD.bannerWidth;
+  const bannerHeight = RunnerTheme.BILLBOARD.bannerHeight;
+
+  const frame = new THREE.Mesh(Geo.box, Mat.pole);
+  frame.scale.set(bannerWidth + 0.15, bannerHeight + 0.15, 0.08);
+  group.add(frame);
+
+  const panelMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+  const panel = new THREE.Mesh(Geo.box, panelMat);
+  panel.scale.set(bannerWidth, bannerHeight, 0.05);
+  panel.position.set(0, 0, 0.07); // proud of the frame toward +Z
+  group.add(panel);
+
+  group.userData.panel = panel;
+  return group;
+}
+
 // Lane divider dash — one short bright stripe painted flat on the road. The
 // generator lays a row of these down each scrolling segment (with gaps
 // between them) so they read as scrolling dashes, same as any highway lane
@@ -498,6 +525,11 @@ const AssetRegistry = {
   billboard: {
     type: 'primitive',
     build: buildBillboard,
+    footprint: { width: 1, height: 1, depth: 1, yBase: 0 },
+  },
+  billboard_banner: {
+    type: 'primitive',
+    build: buildBillboardBanner,
     footprint: { width: 1, height: 1, depth: 1, yBase: 0 },
   },
 };

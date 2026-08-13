@@ -148,6 +148,22 @@ const RunnerTheme = {
       // freestanding-in-the-sidewalk-gap attempt this replaced.
       openLotBillboardChance: 0.6,
       openLotBillboardSetback: 4,
+      // Minimum world-unit distance spawnCityRow() must cover (in buildings
+      // or other lots) before it'll roll for another open lot — without
+      // this, nothing stops two or three lots (each independently a 0.15
+      // chance) landing back-to-back with no buildings between them, which
+      // is exactly what happened before this field existed. 18 is a couple
+      // of buildings' worth of separation (typical row-0 building width is
+      // roughly 2-5 units — see the rooftop billboard width guard in
+      // runner.js for the actual numbers this is based on).
+      openLotMinGap: 18,
+      // Chance a building too narrow for a rooftop billboard (see
+      // ROOFTOP_BILLBOARD_MIN_WIDTH in runner.js) gets a smaller banner
+      // mounted on its face instead — see BILLBOARD.bannerWidth/
+      // bannerHeight below. Independent roll, not "the fallback when
+      // rooftop fails" — a wide building that doesn't win the rooftop roll
+      // can still get a banner too.
+      bannerChance: 0.15,
     },
     { setback: 15.5, maxWidth: 11, height: [10, 24], detail: 'low' },
     { setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low' },
@@ -161,6 +177,7 @@ const RunnerTheme = {
     streetlight: 'streetlight',
     laneDash: 'lane_dash',
     billboard: 'billboard',
+    billboardBanner: 'billboard_banner',
   },
 
   // Distance between streetlights (pre-scale — engine/runner.js multiplies
@@ -177,12 +194,12 @@ const RunnerTheme = {
   // ---- billboards ------------------------------------------------------
   // WHICH images/videos actually show is sponsor content, see billboards.js
   // (RunnerBillboards) — this is sizing only. WHERE billboards get placed
-  // is CITY_ROWS[0]'s rooftopBillboardChance (on individual buildings) and
-  // openLotChance/openLotBillboardChance (in gaps between buildings) above
-  // — there's no freestanding/interval-based billboard placement anymore
-  // (an earlier version tried that; the road-to-building gap is only 1.4
-  // units, nowhere near enough room for a full-size panel standing on its
-  // own — see CITY_ROWS[0]'s comment for the numbers).
+  // is CITY_ROWS[0]'s rooftopBillboardChance/bannerChance (on individual
+  // buildings) and openLotChance/openLotBillboardChance (in gaps between
+  // buildings) above — there's no freestanding/interval-based billboard
+  // placement anymore (an earlier version tried that; the road-to-building
+  // gap is only 1.4 units, nowhere near enough room for a full-size panel
+  // standing on its own — see CITY_ROWS[0]'s comment for the numbers).
   //
   // `panelWidth`/`panelHeight` (world units, pre-scale) size BOTH the actual
   // 3D panel (buildBillboard() in assets.js) and the aspect ratio
@@ -193,9 +210,19 @@ const RunnerTheme = {
   // its native shape — sits centered and undistorted instead of being
   // stretched to fill a wide rectangle; default white suits a dark logo,
   // flip it dark for a light-colored one.
+  //
+  // `bannerWidth`/`bannerHeight` size the smaller, portrait-oriented banner
+  // (buildBillboardBanner() in assets.js) mounted on a building's face —
+  // for buildings too narrow for the full rooftop panel (see
+  // ROOFTOP_BILLBOARD_MIN_WIDTH in runner.js). Deliberately narrow enough
+  // (scaled ~2.0) to fit even row 0's narrowest buildings (measured as low
+  // as ~2.3 units wide — see the width guard's comment in runner.js), so
+  // it needs no per-building width check the way the rooftop panel does.
   BILLBOARD: {
     panelWidth: 4.4,
     panelHeight: 2.6,
+    bannerWidth: 1.6,
+    bannerHeight: 3.2,
     backingColor: 0xffffff,
   },
 

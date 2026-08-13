@@ -134,15 +134,26 @@ function compositeContainTexture(url, aspect, backingColorHex, warnLabel) {
   return tex;
 }
 
-/** The only entry point billboard-placement code (runner.js) should use. */
-BillboardMedia.getTexture = function (creative) {
+/**
+ * The entry point billboard-placement code (runner.js) should use, for both
+ * the main billboard panel AND the smaller banner. `aspect` defaults to the
+ * main panel's own width/height ratio; runner.js passes
+ * RunnerTheme.BILLBOARD.bannerWidth/bannerHeight's ratio when texturing a
+ * banner instead, so the same creative composites correctly onto either
+ * surface's own proportions rather than the wide panel's. Cache key
+ * includes the aspect so a creative used as both a billboard and a banner
+ * gets two independently-composited textures, not one stretched to fit
+ * whichever shape asked first.
+ */
+BillboardMedia.getTexture = function (creative, aspect) {
   if (!creative || !creative.url) return this.getPlaceholder();
   const panel = RunnerTheme.BILLBOARD;
-  const cacheKey = 'billboard|' + creative.url;
+  const effectiveAspect = aspect || (panel.panelWidth / panel.panelHeight);
+  const cacheKey = 'billboard|' + effectiveAspect + '|' + creative.url;
   if (this._cache[cacheKey]) return this._cache[cacheKey];
   const tex = creative.type === 'video'
     ? buildVideoTexture(creative.url)
-    : compositeContainTexture(creative.url, panel.panelWidth / panel.panelHeight, panel.backingColor, 'billboard');
+    : compositeContainTexture(creative.url, effectiveAspect, panel.backingColor, 'billboard');
   this._cache[cacheKey] = tex;
   return tex;
 };
