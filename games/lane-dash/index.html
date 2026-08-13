@@ -38,14 +38,17 @@
 </div>
 
 <div id="hud" style="display:none;">
-  <div>
+  <div class="hud-card hud-score-card">
     <div class="score-block" id="hud-score">0</div>
     <div class="sub" id="hud-high">Best: 0</div>
   </div>
   <div class="hud-right">
     <button id="hud-pause-btn" aria-label="Pause">&#10074;&#10074;</button>
-    <div class="coin-block"><span class="coin-dot"></span><span id="hud-coins">0</span></div>
-    <div class="mult-block" id="hud-mult">x1</div>
+    <div class="hud-card hud-stats-card">
+      <div class="coin-block"><span class="coin-dot"></span><span id="hud-coins">0</span></div>
+      <div class="hud-divider"></div>
+      <div class="mult-block" id="hud-mult">x1</div>
+    </div>
   </div>
 </div>
 

@@ -1274,7 +1274,7 @@ function applyBrandConfig() {
       : null;
     Mat.coinFace.needsUpdate = true;
   }
-  hudHigh.textContent = RunnerBrand.bestLabel + ': ' + Save.high;
+  hudHigh.textContent = RunnerBrand.bestLabel + ': ' + Save.high.toLocaleString();
 }
 applyBrandConfig();
 
@@ -1332,8 +1332,8 @@ document.getElementById('gameover-menu-btn').addEventListener('click', goToMainM
 function pauseGame() {
   if (Game.state !== 'playing') return;
   Game.state = 'paused';
-  pauseScoreEl.textContent = Math.floor(Game.score);
-  pauseCoinsEl.textContent = Game.coins + ' ' + RunnerBrand.collectibleLabel.toLowerCase() + ' × ' + Game.multiplier;
+  pauseScoreEl.textContent = Math.floor(Game.score).toLocaleString();
+  pauseCoinsEl.textContent = Game.coins.toLocaleString() + ' ' + RunnerBrand.collectibleLabel.toLowerCase() + ' × ' + Game.multiplier;
   pauseScreen.classList.remove('hidden');
 }
 
@@ -1388,11 +1388,11 @@ function endGame() {
   // immediately regardless of how long (or whether) the network call takes.
   submitScore(playerCurrentName, finalScore);
 
-  goScore.textContent = finalScore;
+  goScore.textContent = finalScore.toLocaleString();
   // show the sum, so the coins x multiplier rule is obvious
-  goCoins.innerHTML = Game.coins + ' ' + RunnerBrand.collectibleLabel.toLowerCase()
+  goCoins.innerHTML = Game.coins.toLocaleString() + ' ' + RunnerBrand.collectibleLabel.toLowerCase()
     + ' &nbsp;&times;&nbsp; ' + Game.multiplier + ' ' + RunnerBrand.multiplierLabel;
-  goHigh.innerHTML = isNew ? '<span class="new-high">NEW BEST!</span>' : (RunnerBrand.bestLabel + ': ' + Save.high);
+  goHigh.innerHTML = isNew ? '<span class="new-high">NEW BEST!</span>' : (RunnerBrand.bestLabel + ': ' + Save.high.toLocaleString());
   gameoverScreen.classList.remove('hidden');
   hud.style.display = 'none';
   triggerShake(0.35, 0.4);
@@ -1400,10 +1400,10 @@ function endGame() {
 }
 
 function updateHUD() {
-  hudScore.textContent = Math.floor(Game.score);
-  hudCoins.textContent = Game.coins;
+  hudScore.textContent = Math.floor(Game.score).toLocaleString();
+  hudCoins.textContent = Game.coins.toLocaleString();
   hudMult.textContent = 'x' + Game.multiplier;
-  hudHigh.textContent = RunnerBrand.bestLabel + ': ' + Save.high;
+  hudHigh.textContent = RunnerBrand.bestLabel + ': ' + Save.high.toLocaleString();
 }
 
 // ---------------------------------------------------------------------------

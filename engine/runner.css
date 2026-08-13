@@ -28,32 +28,54 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--rd-bg); 
 #game-canvas { display:block; width:100%; height:100%; touch-action:none; }
 
 #hud {
-  position:fixed; top:0; left:0; width:100%; padding:16px 20px;
+  position:fixed; top:0; left:0; width:100%;
+  /* env(safe-area-inset-*) keeps the HUD clear of a notch/pill camera on
+     phones that report one; 0px fallback is a no-op on everything else. */
+  padding:calc(env(safe-area-inset-top, 0px) + 14px) calc(env(safe-area-inset-right, 0px) + 14px)
+          0 calc(env(safe-area-inset-left, 0px) + 14px);
   display:flex; justify-content:space-between; align-items:flex-start;
-  pointer-events:none; z-index:5; color:#fff; text-shadow:0 2px 6px rgba(0,0,0,.6);
+  pointer-events:none; z-index:5; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.4);
+}
+/* Shared "frosted glass" chrome for every HUD grouping (score, coins+
+   multiplier, and the pause button below) — one consistent container
+   language instead of each stat floating as its own bare/differently-
+   styled element. backdrop-filter degrades gracefully to the solid
+   fallback background on browsers that don't support it. */
+.hud-card {
+  background:linear-gradient(165deg, rgba(28,22,46,.62), rgba(10,8,18,.58));
+  -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.1);
+  border-radius:16px;
+  box-shadow:0 8px 20px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.07);
 }
 /* clamp() instead of fixed px so the HUD scales down on narrow phone
    screens rather than assuming a fixed desktop-sized viewport. */
-#hud .score-block { font-size:clamp(22px,7vw,34px); font-weight:800; letter-spacing:1px; }
-#hud .sub { font-size:clamp(11px,3vw,14px); font-weight:600; opacity:.85; margin-top:2px; }
-#hud .hud-right { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
-#hud .coin-block { font-size:clamp(15px,4.5vw,22px); font-weight:700; display:flex; align-items:center; gap:8px; background:rgba(0,0,0,.28); padding:8px 14px; border-radius:30px; }
-#hud .mult-block {
-  font-size:clamp(13px,4vw,20px); font-weight:800; letter-spacing:.5px; padding:6px 14px; border-radius:30px;
-  background:rgba(0,0,0,.28); color:var(--rd-mult-color);
+.hud-score-card { padding:10px 20px 12px 16px; }
+#hud .score-block { font-size:clamp(22px,7vw,32px); font-weight:800; letter-spacing:.5px; line-height:1.05; }
+#hud .sub {
+  font-size:clamp(10px,2.6vw,12px); font-weight:700; letter-spacing:.8px;
+  text-transform:uppercase; opacity:.62; margin-top:5px;
 }
-#hud .coin-dot { width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff6c0, var(--rd-collectible-color) 55%, #cf9600); box-shadow:0 0 6px var(--rd-collectible-color); }
+#hud .hud-right { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
+.hud-stats-card { display:flex; align-items:center; gap:11px; padding:9px 16px 9px 14px; }
+#hud .coin-block { font-size:clamp(15px,4.2vw,20px); font-weight:700; display:flex; align-items:center; gap:7px; }
+#hud .hud-divider { width:1px; height:16px; background:rgba(255,255,255,.16); flex:none; }
+#hud .mult-block { font-size:clamp(13px,3.6vw,17px); font-weight:800; letter-spacing:.3px; color:var(--rd-mult-color); }
+#hud .coin-dot { width:19px; height:19px; border-radius:50%; flex:none; background:radial-gradient(circle at 35% 30%, #fff6c0, var(--rd-collectible-color) 55%, #cf9600); box-shadow:0 0 6px var(--rd-collectible-color); }
 
 /* #hud itself is pointer-events:none (score/coins shouldn't eat swipes), so
    the pause button opts itself back in and is the one HUD element sized
    for a fingertip — 44px is the standard minimum comfortable touch target. */
 #hud-pause-btn {
-  pointer-events:auto; width:44px; height:44px; min-width:44px; min-height:44px;
-  border-radius:50%; border:none; background:rgba(0,0,0,.32); color:#fff;
-  font-size:20px; display:flex; align-items:center; justify-content:center;
-  cursor:pointer; margin-bottom:4px; align-self:flex-end;
+  pointer-events:auto; width:42px; height:42px; min-width:42px; min-height:42px;
+  border-radius:50%; border:1px solid rgba(255,255,255,.1); color:#fff;
+  background:linear-gradient(165deg, rgba(28,22,46,.68), rgba(10,8,18,.62));
+  -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  box-shadow:0 6px 16px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.07);
+  font-size:17px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:transform .12s ease, background .12s ease;
 }
-#hud-pause-btn:active { background:rgba(0,0,0,.5); }
+#hud-pause-btn:active { background:rgba(0,0,0,.6); transform:scale(.92); }
 
 .overlay {
   position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
