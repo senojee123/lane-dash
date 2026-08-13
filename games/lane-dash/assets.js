@@ -58,6 +58,11 @@ const Palette = {
   vehicles: [0xe63946, 0x1d8feb, 0xf4a300, 0x2ecc71, 0x9b5de5, 0xf15bb5],
   treeFoliage: [0x2d9d5b, 0x3bb273, 0x1f8a4c],
   gold: 0xffd166,
+  // Start-line flags (buildFlag() below) — same gold/pink/purple trio as
+  // the title logo's gradient (index.html's --rd-gold-1/--rd-accent-3/
+  // --rd-accent-4) so the one-time start moment reads as this game's own
+  // branding rather than arbitrary decoration colors.
+  flags: [0xffd166, 0xff5f8f, 0x7c4dff],
 };
 
 // -------- shared geometries & materials (created ONCE, reused everywhere) --------
@@ -71,6 +76,21 @@ const Geo = {
   capsule: (function () {
     // simple capsule approximation using a cylinder + two spheres, built per-use in buildPlayer
     return null;
+  })(),
+  // Flat right-triangle pennant, base at local x=0 (attaches to the flag
+  // pole) tapering to a point at x=1 — used by buildFlag() below. A custom
+  // shape rather than a stretched box because a box can't taper to a point;
+  // there's no built-in triangle primitive in three.js.
+  pennant: (function () {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+      0, 0.5, 0,   // base, top
+      0, -0.5, 0,  // base, bottom
+      1, 0, 0,     // tip
+    ]), 3));
+    geo.setIndex([0, 1, 2]);
+    geo.computeVertexNormals();
+    return geo;
   })(),
 };
 
@@ -377,6 +397,31 @@ function buildBuilding() {
   return group;
 }
 
+// ---------------------------------------------------------------------------
+// START-LINE FLAGS — one-time decoration at the very front of a fresh run
+// (engine/runner.js's spawnStartLine(), called only for the track's first
+// segment, never recycled/repeated). DoubleSide material sidesteps needing
+// a "which way does it face" convention like the billboards/buildings
+// needed: a small pennant read from any angle it's actually seen from, so
+// there's no wrong-side-facing failure mode to get wrong here.
+// ---------------------------------------------------------------------------
+function buildFlagFactory(color) {
+  return function buildFlag() {
+    const group = new THREE.Group();
+    const poleHeight = 2.0;
+    const pole = new THREE.Mesh(Geo.cylinder, Mat.pole);
+    pole.scale.set(0.045, poleHeight, 0.045);
+    pole.position.y = poleHeight / 2;
+    group.add(pole);
+    const pennantMat = new THREE.MeshToonMaterial({ color, side: THREE.DoubleSide });
+    const pennant = new THREE.Mesh(Geo.pennant, pennantMat);
+    pennant.scale.set(0.6, 0.42, 1);
+    pennant.position.y = poleHeight - 0.24;
+    group.add(pennant);
+    return group;
+  };
+}
+
 function buildStreetlight() {
   const group = new THREE.Group();
   const pole = new THREE.Mesh(Geo.cylinder, Mat.pole);
@@ -623,5 +668,20 @@ const AssetRegistry = {
     type: 'primitive',
     build: buildFence,
     footprint: { width: FENCE_SEGMENT_LENGTH, height: FENCE_HEIGHT, depth: 0.12, yBase: 0 },
+  },
+  flag_gold: {
+    type: 'primitive',
+    build: buildFlagFactory(Palette.flags[0]),
+    footprint: { width: 0.6, height: 2, depth: 0.05, yBase: 0 },
+  },
+  flag_pink: {
+    type: 'primitive',
+    build: buildFlagFactory(Palette.flags[1]),
+    footprint: { width: 0.6, height: 2, depth: 0.05, yBase: 0 },
+  },
+  flag_purple: {
+    type: 'primitive',
+    build: buildFlagFactory(Palette.flags[2]),
+    footprint: { width: 0.6, height: 2, depth: 0.05, yBase: 0 },
   },
 };

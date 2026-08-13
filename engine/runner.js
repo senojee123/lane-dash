@@ -815,6 +815,36 @@ function spawnStreetlights(seg) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// START-LINE FLAGS — one-time decoration at the front of a fresh run, NOT
+// part of the ordinary per-segment scenery loop (spawnScenery/spawnCityRow
+// above, which run for every segment forever). Called once, only for the
+// track's very first segment, from initTrack() — segment 0 is guaranteed
+// obstacle-free for its own full length (populateSegment's startGapZ
+// handling skips the obstacle-placement loop entirely for segment 0), so
+// this has clear room regardless of what obstacles/scenery would otherwise
+// roll there. Rotation left at the addScenery default (0) — the pennant
+// material is DoubleSide (see buildFlagFactory, assets.js), so unlike
+// billboards/buildings there's no "wrong side" to get backwards.
+// ---------------------------------------------------------------------------
+const START_FLAG_COUNT = RunnerTheme.START_FLAG_COUNT;
+const START_FLAG_SPACING = RunnerTheme.START_FLAG_SPACING * TRACK_SCALE;
+const START_FLAG_FIRST_Z = RunnerTheme.START_FLAG_FIRST_Z * TRACK_SCALE;
+// Lateral offset added directly to the already-scaled ROAD_WIDTH/2, same
+// convention as the streetlight offset just above (ROAD_WIDTH/2 + 0.7) —
+// see theme.js's START_FLAG_X_OFFSET comment for the clearance numbers.
+const START_FLAG_X = ROAD_WIDTH / 2 + RunnerTheme.START_FLAG_X_OFFSET;
+const START_FLAG_KEYS = SCENERY_KEYS.flags;
+
+function spawnStartLine(seg) {
+  for (let i = 0; i < START_FLAG_COUNT; i++) {
+    const localZ = -START_FLAG_FIRST_Z - i * START_FLAG_SPACING;
+    const key = START_FLAG_KEYS[i % START_FLAG_KEYS.length];
+    addScenery(seg, key, -START_FLAG_X, localZ, TRACK_SCALE, 0);
+    addScenery(seg, key, START_FLAG_X, localZ, TRACK_SCALE, 0);
+  }
+}
+
 function spawnLaneLines(seg) {
   for (const x of LANE_DIVIDER_X) {
     for (let z = -LANE_DASH_PERIOD / 2; z > -SEGMENT_LENGTH; z -= LANE_DASH_PERIOD) {
@@ -1107,6 +1137,7 @@ function initTrack() {
     clearSegment(seg);
     seg.group.position.z = z;
     populateSegment(seg, i === 0 ? SEGMENT_LENGTH : 0);
+    if (i === 0) spawnStartLine(seg);
     z -= SEGMENT_LENGTH;
   });
 }
@@ -1362,10 +1393,62 @@ document.getElementById('pause-end-btn').addEventListener('click', () => {
 // of the swipe gestures engine/touch-controls.js reads off the canvas.
 document.getElementById('hud-pause-btn').addEventListener('click', togglePause);
 
+// ---------------------------------------------------------------------------
+// PRE-RUN COUNTDOWN — 3/2/1/GO between "tap to run" and gameplay actually
+// starting. Game.state = 'countdown' is a new state between the menu states
+// and 'playing': the world is already live (track/flags built, HUD showing,
+// camera in its normal framing) but Game.speed stays 0 and every
+// 'playing'-gated system (movement, scrolling, collisions, input — see the
+// state checks in tick() and the tryJump/trySlide/tryLaneChange guards) stays
+// inert, same as it already does for any other non-'playing' state. No
+// changes needed in tick() itself: updateCamera() already runs
+// unconditionally every frame and unconditionally sets the rig's full
+// position from playerState.x, so it holds a steady centered shot on its own
+// once resetPlayer() has zeroed playerState.x — nothing extra to wire up.
+// ---------------------------------------------------------------------------
+const countdownEl = document.getElementById('countdown');
+const countdownTextEl = document.getElementById('countdown-text');
+let countdownTimer = null;
+const COUNTDOWN_STEPS = ['3', '2', '1', 'GO!'];
+const COUNTDOWN_STEP_MS = 700;
+
+// Forces the pop animation to restart even though the class never actually
+// leaves+re-enters from a CSS reflow's point of view otherwise (re-adding a
+// class that's already present is a no-op) — remove, force a layout read,
+// re-add.
+function replayCountdownPop() {
+  countdownTextEl.classList.remove('pop');
+  void countdownTextEl.offsetWidth;
+  countdownTextEl.classList.add('pop');
+}
+
+function runCountdown() {
+  Game.state = 'countdown';
+  countdownEl.classList.remove('hidden');
+  let i = 0;
+  function nextStep() {
+    const label = COUNTDOWN_STEPS[i];
+    countdownTextEl.textContent = label;
+    countdownTextEl.classList.toggle('go', label === 'GO!');
+    replayCountdownPop();
+    i++;
+    if (i < COUNTDOWN_STEPS.length) {
+      countdownTimer = setTimeout(nextStep, COUNTDOWN_STEP_MS);
+    } else {
+      countdownTimer = setTimeout(() => {
+        countdownEl.classList.add('hidden');
+        Game.state = 'playing';
+        Game.speed = BASE_SPEED;
+      }, COUNTDOWN_STEP_MS * 0.65);
+    }
+  }
+  nextStep();
+}
+
 function startGame() {
-  if (Game.state === 'playing') return;
-  Game.state = 'playing';
-  Game.speed = BASE_SPEED;
+  if (Game.state === 'playing' || Game.state === 'countdown') return;
+  if (countdownTimer) clearTimeout(countdownTimer);
+  Game.speed = 0;
   Game.score = 0;
   Game.coins = 0;
   Game.multiplier = 1;
@@ -1374,6 +1457,8 @@ function startGame() {
   startScreen.classList.add('hidden');
   gameoverScreen.classList.add('hidden');
   hud.style.display = 'flex';
+  updateHUD();
+  runCountdown();
 }
 
 function endGame() {
