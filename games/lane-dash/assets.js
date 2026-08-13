@@ -275,13 +275,48 @@ function buildBarrierGap() {
 // ---------------------------------------------------------------------------
 // COLLECTIBLE
 // ---------------------------------------------------------------------------
+// CylinderGeometry's default cap UVs place a square-ish image centered and
+// circularly cropped onto each flat face — exactly what an optional logo
+// image (coinFace's .map, see applyBrandConfig()) needs, EXCEPT the top and
+// bottom caps are generated with a Y-flipped V coordinate relative to each
+// other (three.js's own construction: uv.y = sinTheta*0.5*sign+0.5, sign
+// flips between the two caps) — fine for a material with no inherent "up"
+// (a plain color, or a wraparound texture), but the coin's spin
+// (group.userData.spin below) means the player sees BOTH caps over time,
+// and a logo image has a definite orientation: one face always read
+// upside-down relative to the other (user-reported, confirmed by tracing
+// three.js's own cap UV generation, not guessed).
+//
+// Fixed once here by cloning the shared cylinder geometry and flipping the
+// BOTTOM cap's V coordinate back to match the top cap's — not by adding a
+// second material/texture, which would need its own async-load/needsUpdate
+// tracking in sync with the front face's (real complexity for no benefit).
+// groups[2] is the bottom cap: CylinderGeometry always builds groups in
+// [side, top, bottom] order, each cap's vertices exclusive to that cap
+// (never shared with the side or the other cap), so this can't affect
+// anything else that uses the shared Geo.cylinder (streetlight poles etc.)
+// since this is a clone, not a mutation of Geo.cylinder itself. If it turns
+// out the TOP cap was actually the one reading upside-down instead (this
+// was traced from three.js's source, not visually confirmed against the
+// game), swap groups[2] for groups[1] below — one-line fix either way.
+const CoinGeo = Geo.cylinder.clone();
+(function fixCoinBackFaceUV() {
+  const bottomGroup = CoinGeo.groups[2];
+  const index = CoinGeo.index;
+  const uv = CoinGeo.attributes.uv;
+  const seen = new Set();
+  for (let i = bottomGroup.start; i < bottomGroup.start + bottomGroup.count; i++) {
+    const vi = index.getX(i);
+    if (seen.has(vi)) continue;
+    seen.add(vi);
+    uv.setY(vi, 1 - uv.getY(vi));
+  }
+  uv.needsUpdate = true;
+})();
+
 function buildCoin() {
   const group = new THREE.Group();
-  // CylinderGeometry's default cap UVs place a square-ish image centered
-  // and circularly cropped onto the flat face — exactly what an optional
-  // logo image (coinFace's .map, see applyBrandConfig()) needs, with no
-  // extra geometry/UV work required here.
-  const coin = new THREE.Mesh(Geo.cylinder, Mat.coinFace);
+  const coin = new THREE.Mesh(CoinGeo, Mat.coinFace);
   coin.scale.set(0.34, 0.07, 0.34);
   coin.rotation.z = Math.PI / 2;
   group.add(coin);
