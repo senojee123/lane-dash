@@ -34,6 +34,11 @@ const BillboardMedia = {
  * A neutral "ad slot" panel for when a billboard has no creative assigned
  * (empty RunnerBillboards, or a URL that fails to load) — so an unfilled
  * slot still reads as intentional ad inventory, not a rendering bug.
+ * Background reads from RunnerTheme.BILLBOARD.backingColor (the same color
+ * a real creative letterboxes against in compositeContainTexture below)
+ * rather than its own separately-hardcoded value, so "the billboard
+ * backdrop" means one thing everywhere instead of two colors that could
+ * drift apart — white by default.
  */
 BillboardMedia.getPlaceholder = function () {
   if (this._placeholderTexture) return this._placeholderTexture;
@@ -41,12 +46,13 @@ BillboardMedia.getPlaceholder = function () {
   canvas.width = 512;
   canvas.height = 300;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#1b2230';
+  const backing = '#' + RunnerTheme.BILLBOARD.backingColor.toString(16).padStart(6, '0');
+  ctx.fillStyle = backing;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = '#4a5568';
+  ctx.strokeStyle = '#b0b8c4';
   ctx.lineWidth = 10;
   ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
-  ctx.fillStyle = '#8a94a6';
+  ctx.fillStyle = '#6b7280';
   ctx.font = 'bold 44px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

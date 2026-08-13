@@ -558,10 +558,19 @@ function spawnCityRow(seg, side, row) {
       const lotDepth = Math.min(rawLotDepth, remaining);
       if (row.openLotPavementWidth) addParkingLot(seg, side, row, z, lotDepth);
       if (row.openLotBillboardChance && Math.random() < row.openLotBillboardChance) {
-        const lotZ = z - lotDepth / 2;
+        // Far edge of the lot (z - lotDepth is the exact boundary shared
+        // with the NEXT building; openLotBillboardFarMargin pulls back a
+        // couple of units from that so it doesn't read as touching it) —
+        // NOT the center. Buildings pack edge-to-edge, so whichever
+        // building the player passes right before reaching this lot sits
+        // at the NEAR edge (z); placing the billboard as far from that as
+        // the lot allows gives the longest possible clear sightline before
+        // that building could occlude it, instead of splitting the
+        // difference and getting less clearance on both sides.
+        const billboardZ = (z - lotDepth) + row.openLotBillboardFarMargin;
         const billboardX = side * (row.setback + row.openLotBillboardSetback);
         const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
-        addBillboard(seg, SCENERY_KEYS.billboard, billboardX, lotZ, creative);
+        addBillboard(seg, SCENERY_KEYS.billboard, billboardX, billboardZ, creative);
       }
       z -= lotDepth;
       distanceSinceLastLot = 0;

@@ -156,6 +156,14 @@ const RunnerTheme = {
       // in-the-sidewalk-gap attempt this replaced.
       openLotBillboardChance: 0.6,
       openLotBillboardSetback: 4,
+      // Z placement within the lot: (far edge) + this margin, so the
+      // billboard sits near the end of the lot furthest from whichever
+      // building the player passes right before reaching it — see the
+      // comment at the placement call site (spawnCityRow, engine/runner.js)
+      // for why that's the fix for occlusion rather than centering it. 2
+      // units of buffer so it doesn't read as touching the NEXT building's
+      // own boundary.
+      openLotBillboardFarMargin: 2,
       // Every open lot (not just the ones that win openLotBillboardChance)
       // gets a paved patch + painted parking-line stripes instead of bare
       // grass — a "why is there a gap here" open lot reads as intentional
