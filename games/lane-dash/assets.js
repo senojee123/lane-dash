@@ -456,6 +456,24 @@ function buildLaneDash() {
   return group;
 }
 
+// Parking lot pavement — a flat patch spawned under an open lot (see
+// spawnCityRow()'s open-lot branch in engine/runner.js) so the gap where a
+// building would otherwise be reads as an intentional car park, not an
+// unexplained hole in the city. Built at base size 1x1 (X/Z); the caller
+// sets a non-uniform scale directly (mesh.scale.set(width, 1, depth)) since
+// every lot's depth varies — this is the one piece of scenery in the file
+// that doesn't go through addScenery()'s uniform-scale-plus-squash contract
+// for exactly that reason. Reuses Mat.sidewalk rather than a new material —
+// visually close enough to pavement, and one less thing to add.
+function buildParkingPavement() {
+  const group = new THREE.Group();
+  const mesh = new THREE.Mesh(Geo.box, Mat.sidewalk);
+  mesh.scale.set(1, 0.01, 1);
+  mesh.position.y = 0.006; // proud of the grass, but below lane_dash's 0.012 so parking-line stripes drawn on top never z-fight
+  group.add(mesh);
+  return group;
+}
+
 // ---------------------------------------------------------------------------
 // REGISTRY
 // ---------------------------------------------------------------------------
@@ -523,6 +541,11 @@ const AssetRegistry = {
   billboard: {
     type: 'primitive',
     build: buildBillboard,
+    footprint: { width: 1, height: 1, depth: 1, yBase: 0 },
+  },
+  parking_lot: {
+    type: 'primitive',
+    build: buildParkingPavement,
     footprint: { width: 1, height: 1, depth: 1, yBase: 0 },
   },
 };

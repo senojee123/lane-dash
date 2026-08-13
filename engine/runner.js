@@ -485,6 +485,37 @@ function addScenery(seg, key, x, localZ, scaleMul, rotY, variant, depthSquash) {
 // the roofline rather than exactly at the edge.
 const ROOFTOP_BILLBOARD_MIN_WIDTH = RunnerTheme.BILLBOARD.panelWidth * TRACK_SCALE * 1.1;
 
+// Paved patch + painted parking-line stripes for an open lot — see
+// theme.js's CITY_ROWS[0] comment for the clearance math (0.3 clear of the
+// road, 1.5 clear of row 1, and it fully contains the open-lot billboard's
+// own X position). `z` is the lot's near edge (same convention as the
+// caller's own cursor), `lotDepth` how far it extends.
+function addParkingLot(seg, side, row, z, lotDepth) {
+  const lotZ = z - lotDepth / 2;
+  const near = ROAD_WIDTH / 2 + row.openLotPavementSetback;
+  const width = row.openLotPavementWidth;
+  const centerX = side * (near + width / 2);
+
+  const pavement = MeshPool.acquire(SCENERY_KEYS.parkingLot);
+  pavement.position.set(centerX, 0, lotZ);
+  pavement.scale.set(width, 1, lotDepth);
+  seg.group.add(pavement);
+  seg.scenery.push(pavement);
+
+  // Parking-line stripes: reuse the road's own lane-divider dash primitive
+  // rather than a new asset — rotated 90 degrees (its long axis, normally
+  // along Z for road lane dividers, now runs along X instead) and stretched
+  // via the depthSquash parameter. depthSquash scales LOCAL Z before
+  // rotation is applied (Three.js composes an object's local transform as
+  // scale-then-rotate), so stretching the pre-rotation Z axis correctly
+  // lengthens the line along its POST-rotation X orientation, spanning most
+  // of the pavement's own width instead of staying a short 1.6-unit dash.
+  const stretch = row.openLotLineWidth / 1.6; // 1.6 = buildLaneDash()'s own base length
+  for (let lineZ = z - row.openLotLineSpacing / 2; lineZ > z - lotDepth; lineZ -= row.openLotLineSpacing) {
+    addScenery(seg, SCENERY_KEYS.laneDash, centerX, lineZ, 1, Math.PI / 2, null, stretch);
+  }
+}
+
 function spawnCityRow(seg, side, row) {
   const keys = row.detail === 'full' ? CityModels.FULL_BUILDING_KEYS : CityModels.LOW_BUILDING_KEYS;
   if (!keys.length) return;
@@ -511,17 +542,21 @@ function spawnCityRow(seg, side, row) {
   while (z > -SEGMENT_LENGTH + 0.05) {
     // Open lot: occasionally leave a gap instead of packing another
     // building — real streets aren't wall-to-wall buildings everywhere.
-    // The existing grass plane shows through, reading as an open field, and
-    // (row.openLotBillboardChance permitting) it's real room for a
-    // freestanding, full-size billboard — unlike the 1.4-unit gap between
-    // the road and row 0's own building line, which is nowhere near enough
-    // (see theme.js's CITY_ROWS[0] comment for the numbers this is built
-    // from). Rolled here, before the building pick, so it competes fairly
-    // with "place a building" at every packing decision.
+    // Paved and lined as a car park (addParkingLot, every lot, not just the
+    // ones that also win a billboard) so the gap reads as intentional
+    // rather than an unexplained hole in the city, and — row.
+    // openLotBillboardChance permitting — it's real room for a
+    // freestanding, full-size billboard, standing IN the lot — unlike the
+    // 1.4-unit gap between the road and row 0's own building line, which is
+    // nowhere near enough (see theme.js's CITY_ROWS[0] comment for the
+    // numbers this is built from). Rolled here, before the building pick,
+    // so it competes fairly with "place a building" at every packing
+    // decision.
     if (row.openLotChance && distanceSinceLastLot >= (row.openLotMinGap || 0) && Math.random() < row.openLotChance) {
       const remaining = z + SEGMENT_LENGTH;
       const rawLotDepth = row.openLotDepth[0] + Math.random() * (row.openLotDepth[1] - row.openLotDepth[0]);
       const lotDepth = Math.min(rawLotDepth, remaining);
+      if (row.openLotPavementWidth) addParkingLot(seg, side, row, z, lotDepth);
       if (row.openLotBillboardChance && Math.random() < row.openLotBillboardChance) {
         const lotZ = z - lotDepth / 2;
         const billboardX = side * (row.setback + row.openLotBillboardSetback);

@@ -148,6 +148,25 @@ const RunnerTheme = {
       // freestanding-in-the-sidewalk-gap attempt this replaced.
       openLotBillboardChance: 0.6,
       openLotBillboardSetback: 4,
+      // Every open lot (not just the ones that win openLotBillboardChance)
+      // gets a paved patch + painted parking-line stripes instead of bare
+      // grass — a "why is there a gap here" open lot reads as intentional
+      // once it's clearly a car park, whether or not this particular one
+      // has a billboard standing in it.
+      //
+      // Pavement spans X from (ROAD_WIDTH/2 + openLotPavementSetback) to
+      // (+ openLotPavementWidth) — 5.3 to 14.0 with these numbers — checked
+      // by hand: 0.3 clear of the road, 1.5 clear of row 1 (setback 15.5),
+      // and it fully contains the billboard's own X position (10.4) so a
+      // billboard always reads as standing IN the lot, not near it.
+      openLotPavementSetback: 0.3,
+      openLotPavementWidth: 8.7,
+      // Spacing between painted parking-line stripes along the lot's depth,
+      // and how much of the pavement's own width each stripe spans (7 of
+      // the 8.7 total, leaving a small margin so lines don't touch the
+      // pavement's own edge).
+      openLotLineSpacing: 2.5,
+      openLotLineWidth: 7,
       // Minimum world-unit distance spawnCityRow() must cover (in buildings
       // or other lots) before it'll roll for another open lot — without
       // this, nothing stops two or three lots (each independently a 0.15
@@ -185,6 +204,7 @@ const RunnerTheme = {
     streetlight: 'streetlight',
     laneDash: 'lane_dash',
     billboard: 'billboard',
+    parkingLot: 'parking_lot',
   },
 
   // Distance between streetlights (pre-scale — engine/runner.js multiplies
