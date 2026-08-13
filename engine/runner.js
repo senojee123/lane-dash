@@ -653,15 +653,20 @@ function spawnCityRow(seg, side, row) {
     // and ending up sharing a wall. A smaller building-facade "banner"
     // format for buildings too narrow for this panel was tried and
     // dropped — see theme.js's CITY_ROWS[0] comment for why.
+    // AssetRegistry[key].rooftopMountable is a verified whitelist (see
+    // cityModels.js MANIFEST's comment) — most models are excluded outright
+    // rather than assigned a guessed correction, because a stepped/L-shaped/
+    // multi-mass roof can't be described by a single flat mount height at
+    // every spawn scale; only models actually confirmed flat/safe stay
+    // eligible.
     if (squash > 0.6 && width >= ROOFTOP_BILLBOARD_MIN_WIDTH
         && distanceSinceLastSign >= (row.signMinGap || 0)
+        && AssetRegistry[key].rooftopMountable
         && row.rooftopBillboardChance && Math.random() < row.rooftopBillboardChance) {
       const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
-      // fp.height*s is the model's full measured bounding-box top, which on
-      // a few models (see cityModels.js MANIFEST's roofMountFraction
-      // comment) is a chimney/antenna tip rather than the flat roof — the
-      // fraction (1 for every model that doesn't need it) pulls the mount
-      // point down onto the actual roof plateau instead.
+      // fp.height*s is the model's full measured bounding-box top; the
+      // roofMountFraction (only set on rooftopMountable models) pulls the
+      // mount point down onto the model's actual flat roof surface.
       const mountHeight = fp.height * s * AssetRegistry[key].roofMountFraction;
       addBillboard(seg, SCENERY_KEYS.billboard, buildingX, buildingZ, creative, mountHeight);
       distanceSinceLastSign = 0;

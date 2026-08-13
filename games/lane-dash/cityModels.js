@@ -33,32 +33,40 @@ const CityModels = {
 // key -> { file, footprint (fallback guess, overwritten by measured size on load), tier }
 const CITY_MODEL_MANIFEST = {
   // ---- full-detail buildings (14) — use near the road / close to camera ----
-  building_a: { file: 'building-a.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
-  building_b: { file: 'building-b.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
-  building_c: { file: 'building-c.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
+  building_a: { file: 'building-a.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 }, rooftopMountable: true, roofMountFraction: 0.928 },
+  building_b: { file: 'building-b.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 }, rooftopMountable: true, roofMountFraction: 0.928 },
+  building_c: { file: 'building-c.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 }, rooftopMountable: true, roofMountFraction: 0.896 },
   building_d: { file: 'building-d.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
   building_e: { file: 'building-e.glb', tier: 'full', footprint: { width: 4, height: 10, depth: 4, yBase: 0 } },
-  building_f: { file: 'building-f.glb', tier: 'full', footprint: { width: 4, height: 12, depth: 4, yBase: 0 } },
+  building_f: { file: 'building-f.glb', tier: 'full', footprint: { width: 4, height: 12, depth: 4, yBase: 0 }, rooftopMountable: true, roofMountFraction: 0.945 },
   building_g: { file: 'building-g.glb', tier: 'full', footprint: { width: 4, height: 12, depth: 4, yBase: 0 } },
-  building_h: { file: 'building-h.glb', tier: 'full', footprint: { width: 4, height: 12, depth: 4, yBase: 0 } },
-  building_i: { file: 'building-i.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
-  building_j: { file: 'building-j.glb', tier: 'full', footprint: { width: 4, height: 16, depth: 4, yBase: 0 } },
-  // roofMountFraction on these four: measured directly from each GLB's own
-  // geometry (vertex-height histogram, not guessed) — footprint.height is
-  // the model's FULL bounding-box top, which on these specific models is a
-  // chimney/antenna tip rather than the flat roof surface. A billboard
-  // mounted at footprint.height*roofMountFraction instead of footprint.height
-  // sits on the actual roof plateau below that tip. The other ten "full"
-  // buildings and all five skyscrapers measured with 0% gap between their
-  // bbox top and roof plateau (flat-topped) and need no correction, hence no
-  // field here — see spawnCityRow (engine/runner.js) for where this is read.
-  building_k: { file: 'building-k.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 }, roofMountFraction: 0.95 },
-  building_l: { file: 'building-l.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 }, roofMountFraction: 0.917 },
-  building_m: { file: 'building-m.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 }, roofMountFraction: 0.8 },
-  building_n: { file: 'building-n.glb', tier: 'full', footprint: { width: 4, height: 16, depth: 4, yBase: 0 }, roofMountFraction: 0.85 },
+  building_h: { file: 'building-h.glb', tier: 'full', footprint: { width: 4, height: 12, depth: 4, yBase: 0 }, rooftopMountable: true, roofMountFraction: 0.928 },
+  building_i: { file: 'building-i.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 }, rooftopMountable: true, roofMountFraction: 0.952 },
+  building_j: { file: 'building-j.glb', tier: 'full', footprint: { width: 4, height: 16, depth: 4, yBase: 0 }, rooftopMountable: true, roofMountFraction: 0.945 },
+  // roofMountFraction/rooftopMountable: a first pass at this (single
+  // corrected fraction on 4 models found via a generic "topmost mass"
+  // measurement) still floated on most buildings — a flat scalar can't
+  // describe a stepped/L-shaped/multi-mass roof, and worse, since the
+  // billboard's poles sit at a FIXED WORLD-SPACE offset while each spawn
+  // scales the model by a random factor, the SAME model probes a different
+  // relative point on its own roof depending on how tall/wide it happened
+  // to spawn — so a single fraction could be right for one spawn and float
+  // on the next spawn of the identical model. Re-measured properly this
+  // time: sampled the actual surface height directly under both pole
+  // positions, across the model's full possible spawn-scale range, and only
+  // marked `rooftopMountable: true` on models that measured flat/safe at
+  // every scale (see spawnCityRow, engine/runner.js, for where this gates
+  // rooftop billboard eligibility). Models without the flag simply never
+  // get a rooftop billboard — building_d/e/g/l/m/n all have a stepped roof,
+  // a second mass, or a tower that either leaves open air or pokes through
+  // the panel at some spawn scales, and aren't worth another patch.
+  building_k: { file: 'building-k.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 }, rooftopMountable: true, roofMountFraction: 0.816 },
+  building_l: { file: 'building-l.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
+  building_m: { file: 'building-m.glb', tier: 'full', footprint: { width: 4, height: 14, depth: 4, yBase: 0 } },
+  building_n: { file: 'building-n.glb', tier: 'full', footprint: { width: 4, height: 16, depth: 4, yBase: 0 } },
 
   // ---- skyscrapers (5) — tallest full-detail buildings ----
-  building_skyscraper_a: { file: 'building-skyscraper-a.glb', tier: 'full', footprint: { width: 5, height: 22, depth: 5, yBase: 0 } },
+  building_skyscraper_a: { file: 'building-skyscraper-a.glb', tier: 'full', footprint: { width: 5, height: 22, depth: 5, yBase: 0 }, rooftopMountable: true, roofMountFraction: 0.972 },
   building_skyscraper_b: { file: 'building-skyscraper-b.glb', tier: 'full', footprint: { width: 5, height: 24, depth: 5, yBase: 0 } },
   building_skyscraper_c: { file: 'building-skyscraper-c.glb', tier: 'full', footprint: { width: 5, height: 26, depth: 5, yBase: 0 } },
   building_skyscraper_d: { file: 'building-skyscraper-d.glb', tier: 'full', footprint: { width: 5, height: 26, depth: 5, yBase: 0 } },
@@ -110,10 +118,14 @@ Object.keys(CITY_MODEL_MANIFEST).forEach((key) => {
     path: MODEL_BASE_PATH + entry.file,
     footprint: entry.footprint,
     tier: entry.tier,
-    // Fraction of footprint.height that's the model's real roof plateau
-    // rather than a chimney/antenna tip — see MANIFEST's comment above.
-    // Defaults to 1 (mount at the full measured height, today's behavior)
-    // for every model that doesn't need the correction.
+    // Whether this model's roof is flat/simple enough for a rooftop
+    // billboard's fixed-offset poles to land on solid roof at every
+    // possible spawn scale — see MANIFEST's comment above. Most models
+    // default to false (never get a rooftop billboard) rather than
+    // guessing; only the ones actually verified stay eligible.
+    rooftopMountable: !!entry.rooftopMountable,
+    // Fraction of footprint.height that's the model's real roof plateau —
+    // only meaningful (and only set in MANIFEST) on rooftopMountable models.
     roofMountFraction: entry.roofMountFraction || 1,
   };
 });

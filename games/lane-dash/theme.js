@@ -136,7 +136,13 @@ const RunnerTheme = {
   CITY_ROWS: [
     {
       setback: 6.4, maxWidth: 9, height: [7, 16], detail: 'full',
-      rooftopBillboardChance: 0.12,
+      // Raised from 0.12: only 9 of the 15 "full" building models are
+      // rooftopMountable now (cityModels.js MANIFEST — the other 6 have a
+      // stepped/multi-mass roof that floated a billboard at some spawn
+      // scale no matter how this fraction was tuned, so they're excluded
+      // outright instead of patched again). Bumped so sign density stays
+      // roughly where it was with the smaller eligible pool.
+      rooftopBillboardChance: 0.2,
       openLotChance: 0.15,
       // Widened from [8, 14]: buildings pack edge-to-edge, so the billboard
       // (placed at the lot's own center) sits exactly depth/2 away from
