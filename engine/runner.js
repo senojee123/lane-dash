@@ -1226,8 +1226,29 @@ const pauseCoinsEl = document.getElementById('pause-coins');
 // ---------------------------------------------------------------------------
 const bankLineText = document.getElementById('bank-line-text');
 const pauseLineLabel = document.getElementById('pause-line-label');
+const sponsorLogoEls = [
+  document.getElementById('loading-sponsor-logo'),
+  document.getElementById('start-sponsor-logo'),
+  document.getElementById('gameover-sponsor-logo'),
+  document.getElementById('pause-sponsor-logo'),
+].filter(Boolean);
 
 function applyBrandConfig() {
+  // Plain <img>, not a canvas/texture composite like the billboards/coin
+  // face — this is flat 2D UI, so the browser can just load and letterbox
+  // it itself (object-fit:contain, see runner.css's .sponsor-logo) rather
+  // than needing BillboardMedia's contain-fit canvas trick, which exists
+  // specifically for 3D materials that need a THREE.Texture, not an <img>.
+  sponsorLogoEls.forEach((el) => {
+    if (RunnerBrand.sponsorLogoUrl) {
+      el.src = RunnerBrand.sponsorLogoUrl;
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
+      el.removeAttribute('src');
+    }
+  });
+
   const collectible = RunnerBrand.collectibleLabel.toLowerCase();
   const score = RunnerBrand.scoreLabel.toLowerCase();
   if (bankLineText) {

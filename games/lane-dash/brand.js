@@ -16,6 +16,16 @@
    mechanics).
 ============================================================================ */
 const RunnerBrand = {
+  // Optional: a sponsor logo shown above the title on every overlay screen
+  // (loading, start, game-over, pause) — the one guaranteed-seen branding
+  // surface every player passes through, unlike billboards which are
+  // peripheral to gameplay. Leave null to show no logo (default reskin
+  // look, no reserved empty space). Shown at its own aspect ratio (not
+  // cropped/stretched) via applyBrandConfig() in engine/runner.js — plain
+  // <img>, not composited onto anything, so a transparent-background PNG
+  // just sits on the screen's own dark background.
+  sponsorLogoUrl: 'https://images.seeklogo.com/logo-png/29/1/dialog-sri-lanka-logo-png_seeklogo-296843.png',
+
   // The collectible — today "coins". Renaming this updates every place the
   // word appears in the UI (HUD, bank-line, game-over, pause). Recoloring
   // updates both the HTML HUD dot (--rd-collectible-color) and the in-game
@@ -31,7 +41,7 @@ const RunnerBrand = {
   // "contain" fit (BillboardMedia.getImageTexture, engine/billboard-
   // media.js) onto collectibleColor as the backing, so a transparent-
   // background logo blends in rather than showing a mismatched square.
-  collectibleImageUrl: null,
+  collectibleImageUrl: 'https://images.seeklogo.com/logo-png/29/1/dialog-sri-lanka-logo-png_seeklogo-296843.png',
 
   // Score / points.
   scoreLabel: 'Score',

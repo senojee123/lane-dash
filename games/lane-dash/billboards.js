@@ -23,6 +23,5 @@
    a page reload, once that transport exists.
 ============================================================================ */
 const RunnerBillboards = [
-  // { type: 'image', url: 'https://example.com/sponsor-ad.jpg' },
-  // { type: 'video', url: 'https://example.com/sponsor-ad.mp4' },
+  { type: 'image', url: 'https://images.seeklogo.com/logo-png/29/1/dialog-sri-lanka-logo-png_seeklogo-296843.png' },
 ];

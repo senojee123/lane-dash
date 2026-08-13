@@ -61,6 +61,17 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--rd-bg); 
   color:#fff; text-align:center; z-index:10; padding:20px;
 }
 .overlay.hidden { display:none; }
+/* Sponsor logo slot, sits above .title-logo on every overlay screen
+   (loading/start/game-over/pause) — hidden (inline style, index.html) until
+   RunnerBrand.sponsorLogoUrl is set, so a reskin with no sponsor logo shows
+   no empty gap. Generously sized on purpose (this is the guaranteed-seen
+   branding surface — every player sees these screens, unlike billboards)
+   but capped so an unusually wide/tall source image can't dominate the
+   screen or push the title/buttons off a short viewport. */
+.sponsor-logo {
+  display:block; max-width:min(360px, 78vw); max-height:min(140px, 22vh);
+  width:auto; height:auto; object-fit:contain; margin:0 auto 20px;
+}
 .title-logo {
   font-size:clamp(38px,8vw,64px); font-weight:900; letter-spacing:2px;
   background:linear-gradient(90deg, var(--rd-gold-1), var(--rd-gold-2), var(--rd-accent-3), var(--rd-accent-4));
