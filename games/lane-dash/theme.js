@@ -123,8 +123,32 @@ const RunnerTheme = {
   // back) — the chase camera sits at height ~6.5 with a mild downward tilt,
   // so a rooftop sign only reads clearly on buildings in roughly that same
   // height range; anything much taller and it'd sit above the frame.
+  //
+  // openLotChance/openLotDepth (optional, per-row): real streets don't have
+  // buildings packed wall-to-wall against them everywhere — occasionally
+  // spawnCityRow() leaves a gap (the existing grass plane shows through,
+  // reading as an open lot) instead of packing another building. Only row
+  // 0: the gap between the road edge and row 0's own setback is just 1.4
+  // units (6.4 - ROAD_WIDTH/2's 5) — nowhere near enough for a freestanding,
+  // full-size billboard to stand in facing the road, which is exactly what
+  // openLotBillboardChance/openLotBillboardSetback use these lots for: real
+  // room, not a squeeze.
   CITY_ROWS: [
-    { setback: 6.4, maxWidth: 9, height: [7, 16], detail: 'full', rooftopBillboardChance: 0.12 },
+    {
+      setback: 6.4, maxWidth: 9, height: [7, 16], detail: 'full',
+      rooftopBillboardChance: 0.12,
+      openLotChance: 0.15,
+      openLotDepth: [8, 14],
+      // Chance a given open lot also gets a billboard (not every real lot
+      // has one), and how far past the row's own setback line it stands —
+      // setback(6.4) + 4 = X=10.4. Panel half-width (4.4/2 * TRACK_SCALE
+      // 1.25 = 2.75) puts its near edge at 7.65 (2.65 clear of the road at
+      // 5) and its far edge at 13.15 (2.35 clear of row 1 at 15.5) — real
+      // margin on both sides, worked out by hand, not a near-miss like the
+      // freestanding-in-the-sidewalk-gap attempt this replaced.
+      openLotBillboardChance: 0.6,
+      openLotBillboardSetback: 4,
+    },
     { setback: 15.5, maxWidth: 11, height: [10, 24], detail: 'low' },
     { setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low' },
   ],
@@ -139,11 +163,11 @@ const RunnerTheme = {
     billboard: 'billboard',
   },
 
-  // Distance between streetlights (pre-scale, like BILLBOARD.interval below
-  // — engine/runner.js multiplies by TRACK_SCALE). Placed deterministically,
-  // alternating sides, keyed off absolute distance the same way billboards
-  // are — was previously `11 + Math.random()*5` with a random side each
-  // time, which could clump two on the same side back to back.
+  // Distance between streetlights (pre-scale — engine/runner.js multiplies
+  // by TRACK_SCALE). Placed deterministically, alternating sides, keyed off
+  // absolute distance the same way rooftop/open-lot billboards are — was
+  // previously `11 + Math.random()*5` with a random side each time, which
+  // could clump two on the same side back to back.
   // 24 = half as many as the original ~12-16 average spacing: each
   // streetlight is 5 separate meshes (pole/arm/lamp/cone/pool), and with
   // SEGMENTS_AHEAD=11 segments loaded at once this was one of the largest
@@ -152,21 +176,13 @@ const RunnerTheme = {
 
   // ---- billboards ------------------------------------------------------
   // WHICH images/videos actually show is sponsor content, see billboards.js
-  // (RunnerBillboards) — this is placement/sizing only. One billboard slot
-  // is placed every `interval` of track (pre-scale, like REST_INTERVAL —
-  // engine/runner.js multiplies by TRACK_SCALE), alternating sides, keyed
-  // off absolute distance (not per-segment randomness) so a slot lands
-  // exactly once regardless of where segment-recycling boundaries happen to
-  // fall — same technique as the breather-stretch cadence above. At 40
-  // (pre-scale) the first billboard lands around the 50-unit mark, roughly
-  // 3-4 seconds into a run — tuned to be found quickly, not just eventually.
-  //
-  // `setback` is a FLAT offset beyond ROAD_WIDTH/2, deliberately NOT
-  // multiplied by TRACK_SCALE — same convention as the streetlight's own
-  // hardcoded 0.7 in engine/runner.js's spawnScenery(). It has to stay
-  // comfortably under CITY_ROWS[0].setback (6.4, itself unscaled) or the
-  // panel ends up planted inside the first building row; 1.0 puts it just
-  // past the streetlights' own 5.7 band with room to spare.
+  // (RunnerBillboards) — this is sizing only. WHERE billboards get placed
+  // is CITY_ROWS[0]'s rooftopBillboardChance (on individual buildings) and
+  // openLotChance/openLotBillboardChance (in gaps between buildings) above
+  // — there's no freestanding/interval-based billboard placement anymore
+  // (an earlier version tried that; the road-to-building gap is only 1.4
+  // units, nowhere near enough room for a full-size panel standing on its
+  // own — see CITY_ROWS[0]'s comment for the numbers).
   //
   // `panelWidth`/`panelHeight` (world units, pre-scale) size BOTH the actual
   // 3D panel (buildBillboard() in assets.js) and the aspect ratio
@@ -178,8 +194,6 @@ const RunnerTheme = {
   // stretched to fill a wide rectangle; default white suits a dark logo,
   // flip it dark for a light-colored one.
   BILLBOARD: {
-    interval: 40,
-    setback: 1.0,
     panelWidth: 4.4,
     panelHeight: 2.6,
     backingColor: 0xffffff,

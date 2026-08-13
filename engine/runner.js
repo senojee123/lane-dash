@@ -482,6 +482,29 @@ function spawnCityRow(seg, side, row) {
 
   let z = 0;
   while (z > -SEGMENT_LENGTH + 0.05) {
+    // Open lot: occasionally leave a gap instead of packing another
+    // building — real streets aren't wall-to-wall buildings everywhere.
+    // The existing grass plane shows through, reading as an open field, and
+    // (row.openLotBillboardChance permitting) it's real room for a
+    // freestanding, full-size billboard — unlike the 1.4-unit gap between
+    // the road and row 0's own building line, which is nowhere near enough
+    // (see theme.js's CITY_ROWS[0] comment for the numbers this is built
+    // from). Rolled here, before the building pick, so it competes fairly
+    // with "place a building" at every packing decision.
+    if (row.openLotChance && Math.random() < row.openLotChance) {
+      const remaining = z + SEGMENT_LENGTH;
+      const rawLotDepth = row.openLotDepth[0] + Math.random() * (row.openLotDepth[1] - row.openLotDepth[0]);
+      const lotDepth = Math.min(rawLotDepth, remaining);
+      if (row.openLotBillboardChance && Math.random() < row.openLotBillboardChance) {
+        const lotZ = z - lotDepth / 2;
+        const billboardX = side * (row.setback + row.openLotBillboardSetback);
+        const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
+        addBillboard(seg, billboardX, lotZ, 0, creative);
+      }
+      z -= lotDepth;
+      continue;
+    }
+
     const key = randChoice(keys);
     const fp = AssetRegistry[key].footprint;
 
@@ -538,18 +561,13 @@ const LANE_DASH_PERIOD = LANE_DASH_LENGTH + LANE_DASH_GAP;
 const SCENERY_KEYS = RunnerTheme.SCENERY_KEYS;
 
 // ---------------------------------------------------------------------------
-// BILLBOARDS — ad slots always exist in the world (see theme.js's
-// RunnerTheme.BILLBOARD comment for why); RunnerBillboards (billboards.js)
-// is optional and only decides what's ON them.
+// BILLBOARDS — ad slots exist on individual buildings (rooftop, via
+// spawnCityRow below) and in open lots between them (also spawnCityRow) —
+// see theme.js's CITY_ROWS[0] comment for why there's no freestanding/
+// interval-based placement. RunnerBillboards (billboards.js) is optional
+// and only decides what's ON a given slot.
 // ---------------------------------------------------------------------------
-const BILLBOARD_INTERVAL = RunnerTheme.BILLBOARD.interval * TRACK_SCALE;
-const BILLBOARD_SETBACK = RunnerTheme.BILLBOARD.setback; // flat offset, not TRACK_SCALE'd — see theme.js
 const HAS_BILLBOARD_CREATIVES = typeof RunnerBillboards !== 'undefined' && RunnerBillboards.length > 0;
-// Diagnostic-only A/B switch (?nobillboards in the URL) for isolating
-// whether billboards are actually the cause of a suspected perf regression
-// — same build, same everything else, just skips spawnBillboards() below.
-// Not a real feature toggle; remove once the investigation is done.
-const BILLBOARDS_DISABLED = new URLSearchParams(window.location.search).has('nobillboards');
 
 function addBillboard(seg, x, localZ, rotY, creative, y) {
   const mesh = MeshPool.acquire(SCENERY_KEYS.billboard);
@@ -568,34 +586,9 @@ function addBillboard(seg, x, localZ, rotY, creative, y) {
   seg.scenery.push(mesh);
 }
 
-// Keyed off absolute layout distance rather than a per-segment scan (like
-// isRestStretch above), so a billboard slot lands exactly once per
-// BILLBOARD_INTERVAL regardless of where segment-recycling boundaries land —
-// no double-placement, no gaps. `idx` also seeds a stable round-robin pick
-// across RunnerBillboards, so consecutive slots cycle creatives rather than
-// each independently re-rolling (and all landing on the same one by chance).
-function spawnBillboards(seg) {
-  const segmentBase = -seg.group.position.z;
-  const startIdx = Math.ceil(segmentBase / BILLBOARD_INTERVAL);
-  const endIdx = Math.ceil((segmentBase + SEGMENT_LENGTH) / BILLBOARD_INTERVAL);
-  for (let idx = startIdx; idx < endIdx; idx++) {
-    if (idx <= 0) continue; // no billboard right at the very start of the run
-    const targetDistance = idx * BILLBOARD_INTERVAL;
-    const localZ = segmentBase - targetDistance;
-    const side = (idx % 2 === 0) ? -1 : 1;
-    const creative = HAS_BILLBOARD_CREATIVES ? RunnerBillboards[(idx - 1) % RunnerBillboards.length] : null;
-    // No left/right rotation flip needed — the panel faces +Z (back down the
-    // track, toward the camera) regardless of which side of the road it's
-    // on, unlike the streetlight's arm, which genuinely does need to reach
-    // laterally toward the road depending on its side. See buildBillboard()
-    // in assets.js for the fuller explanation.
-    addBillboard(seg, side * (ROAD_WIDTH / 2 + BILLBOARD_SETBACK), localZ, 0, creative);
-  }
-}
-
 const STREETLIGHT_INTERVAL = RunnerTheme.STREETLIGHT_INTERVAL * TRACK_SCALE;
 
-// Same absolute-distance-keyed placement as spawnBillboards above — exactly
+// Same absolute-distance-keyed placement as isRestStretch below — exactly
 // one streetlight lands per STREETLIGHT_INTERVAL regardless of where
 // segment-recycling boundaries fall, alternating sides deterministically by
 // index parity rather than a per-spawn coin flip (which could clump two on
@@ -626,7 +619,6 @@ function spawnLaneLines(seg) {
 
 function spawnScenery(seg) {
   spawnLaneLines(seg);
-  if (!BILLBOARDS_DISABLED) spawnBillboards(seg);
   for (const row of CITY_ROWS) {
     spawnCityRow(seg, -1, row);
     spawnCityRow(seg, 1, row);

@@ -42,7 +42,7 @@ pack. A new reskin is: copy that folder, then edit/replace:
 | `character.js` | Player rig/animation loading. Falls back to a procedural box character if it fails, so this is optional too |
 | `theme.js` | Every game-feel tuning number — speed, camera framing, track scale, scoring curve, city row layout, obstacle-class weights, rest-stretch cadence. Static per reskin, not meant to change live |
 | `brand.js` | Sponsor-controlled: the collectible's name + color, and the score/multiplier/best labels. This is the layer meant to be live-patchable later (see its header) — separate from `theme.js` on purpose |
-| `billboards.js` | Sponsor-controlled: `RunnerBillboards`, an array of `{ type, url }` ad creatives shown round-robin on the in-world billboards. Also live-patchable-later, same reasoning as `brand.js`. Billboard *placement* (how often, how far off the road) is `theme.js`'s `BILLBOARD` block instead — layout is game-feel, creatives are sponsor content |
+| `billboards.js` | Sponsor-controlled: `RunnerBillboards`, an array of `{ type, url }` ad creatives picked at random for each billboard slot. Also live-patchable-later, same reasoning as `brand.js`. Billboard *placement* is `theme.js`'s `CITY_ROWS[0]` fields instead (`rooftopBillboardChance`, `openLotChance`/`openLotBillboardChance`/`openLotBillboardSetback`) — layout is game-feel, creatives are sponsor content. `BILLBOARD.panelWidth`/`panelHeight`/`backingColor` size the panel itself |
 | `index.html` | Branding copy (title/subtitle/game-over text) and the CSS custom-property overrides for brand colors (`:root` block — see `engine/runner.css`'s header) |
 | `config.js` (gitignored, copy from `config.example.js`) | Supabase project URL/key + `SCORES_TABLE` for this deployment |
 

@@ -356,9 +356,11 @@ function buildStreetlight() {
   return group;
 }
 
-// Roadside ad billboard: two support poles + a frame + a panel that
-// engine/runner.js retextures per instance with a sponsor creative (see
-// engine/billboard-media.js).
+// Ad billboard: two support poles + a frame + a panel that engine/runner.js
+// retextures per instance with a sponsor creative (see
+// engine/billboard-media.js). Used both freestanding in open lots and
+// mounted on rooftops — see spawnCityRow() in engine/runner.js for both
+// placement paths.
 //
 // FACING: the panel's readable faces are its ±Z sides, NOT ±X — this is the
 // direction the chase camera actually approaches from (it trails behind the
@@ -369,11 +371,11 @@ function buildStreetlight() {
 // streetlight's arm — that has to reach laterally IN toward the road — but
 // wrong for a billboard's face, which needs to point back down the track
 // toward the camera, not sideways across it. Fixed: no more left/right
-// rotation flip needed at placement either (see spawnBillboards()/the
-// rooftop billboard call in engine/runner.js) — since the face is now along
-// Z and the camera always approaches from the same Z direction regardless
-// of which side of the road the billboard sits on, one fixed orientation
-// works for every placement.
+// rotation flip needed at placement either (see spawnCityRow()'s open-lot
+// and rooftop billboard calls in engine/runner.js) — since the face is now
+// along Z and the camera always approaches from the same Z direction
+// regardless of which side of the road the billboard sits on, one fixed
+// orientation works for every placement.
 //
 // Built from thin boxes rather than a plane, matching every other primitive
 // in this file — the box's ±Z faces carry the texture, the barely-visible
