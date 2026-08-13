@@ -498,14 +498,14 @@ function spawnCityRow(seg, side, row) {
   // segment's row is generated independently) — a rarer residual case than
   // the within-segment back-to-back one this actually fixes.
   let distanceSinceLastLot = Infinity;
-  // Same problem, same fix, for signs mounted on individual buildings
-  // (rooftop or banner) instead of lots: buildings pack edge-to-edge with
-  // zero gap between them, and rooftopBillboardChance/bannerChance are
-  // rolled independently per building, so two adjacent buildings could each
-  // win their roll with nothing but a shared wall between their signs —
-  // confirmed from a screenshot, not just reasoned about (this is the exact
-  // bug distanceSinceLastLot already fixed for open lots, just not
-  // generalized to this second, separate placement path when it was added).
+  // Same problem, same fix, for rooftop signs mounted on individual
+  // buildings instead of lots: buildings pack edge-to-edge with zero gap
+  // between them, and rooftopBillboardChance is rolled independently per
+  // building, so two adjacent buildings could each win their roll with
+  // nothing but a shared wall between their signs — confirmed from a
+  // screenshot, not just reasoned about (this is the exact bug
+  // distanceSinceLastLot already fixed for open lots, just not generalized
+  // to this second, separate placement path).
   let distanceSinceLastSign = Infinity;
 
   while (z > -SEGMENT_LENGTH + 0.05) {
@@ -564,37 +564,22 @@ function spawnCityRow(seg, side, row) {
     // buildBillboard() in assets.js), which is the direction the camera
     // actually approaches from, so no left/right flip is needed regardless
     // of which side of the road the building is on.
-    // Two guards, confirmed necessary from an actual screenshot, not just
-    // reasoned about: squash > 0.6 skips a building squashed to a near-
-    // invisible sliver at a segment boundary (tall enough to host a sign,
-    // but rendered too thin to actually see under it); width >=
+    // Three guards, each confirmed necessary from an actual screenshot, not
+    // just reasoned about: squash > 0.6 skips a building squashed to a
+    // near-invisible sliver at a segment boundary (tall enough to host a
+    // sign, but rendered too thin to actually see under it); width >=
     // ROOFTOP_BILLBOARD_MIN_WIDTH skips a building narrower than the panel
-    // itself, which otherwise overhangs the roofline on both sides — this
-    // is the one actually seen floating in the screenshot.
-    //
-    // A building too narrow for the rooftop panel gets a shot at the
-    // smaller face-mounted banner instead (bannerChance) — an independent
-    // roll, not a fallback only reached when the rooftop roll fails, so a
-    // wide building that didn't win the rooftop chance can still get a
-    // banner too. The banner needs no width check of its own (see
-    // theme.js's BILLBOARD.bannerWidth comment for why) and is positioned
-    // at the building's own road-facing wall (side * (row.setback - 0.1))
-    // rather than its center — every building in a row shares that exact
-    // wall X by construction (center = setback + width/2, so inner edge is
-    // always exactly setback), so this is correct regardless of how wide
-    // the specific building turned out to be.
-    const signAllowed = distanceSinceLastSign >= (row.signMinGap || 0);
-    if (squash > 0.6 && signAllowed && row.rooftopBillboardChance && width >= ROOFTOP_BILLBOARD_MIN_WIDTH
-        && Math.random() < row.rooftopBillboardChance) {
+    // itself, which otherwise overhangs the roofline on both sides;
+    // distanceSinceLastSign >= row.signMinGap stops two adjacent buildings
+    // (packed edge-to-edge, zero gap) both independently winning this roll
+    // and ending up sharing a wall. A smaller building-facade "banner"
+    // format for buildings too narrow for this panel was tried and
+    // dropped — see theme.js's CITY_ROWS[0] comment for why.
+    if (squash > 0.6 && width >= ROOFTOP_BILLBOARD_MIN_WIDTH
+        && distanceSinceLastSign >= (row.signMinGap || 0)
+        && row.rooftopBillboardChance && Math.random() < row.rooftopBillboardChance) {
       const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
       addBillboard(seg, SCENERY_KEYS.billboard, buildingX, buildingZ, creative, fp.height * s);
-      distanceSinceLastSign = 0;
-    } else if (squash > 0.6 && signAllowed && row.bannerChance && Math.random() < row.bannerChance) {
-      const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
-      const bannerX = side * (row.setback - 0.1);
-      const bannerY = Math.min(fp.height * s * 0.55, 4.5);
-      const bannerAspect = RunnerTheme.BILLBOARD.bannerWidth / RunnerTheme.BILLBOARD.bannerHeight;
-      addBillboard(seg, SCENERY_KEYS.billboardBanner, bannerX, buildingZ, creative, bannerY, bannerAspect);
       distanceSinceLastSign = 0;
     }
 
@@ -622,14 +607,12 @@ const SCENERY_KEYS = RunnerTheme.SCENERY_KEYS;
 // ---------------------------------------------------------------------------
 const HAS_BILLBOARD_CREATIVES = typeof RunnerBillboards !== 'undefined' && RunnerBillboards.length > 0;
 
-// `key` picks the asset (SCENERY_KEYS.billboard for the full-size panel,
-// .billboardBanner for the narrow face-mounted one) and `aspect` (optional)
-// overrides which surface shape BillboardMedia composites the creative
-// against — defaults to the main panel's own aspect if omitted, so existing
-// billboard call sites don't need to pass it. Rotation is always 0 (faces
-// +Z, see buildBillboard()'s header) for every placement, so it's set here
-// rather than taken as a parameter — nothing left to vary it by.
-function addBillboard(seg, key, x, localZ, creative, y, aspect) {
+// `key` picks the asset — just SCENERY_KEYS.billboard today, kept as a
+// parameter (rather than hardcoded) for consistency with every other
+// scenery-spawning function in this file, all of which take a key. Rotation
+// is always 0 (faces +Z, see buildBillboard()'s header) for every
+// placement, so it's set here rather than taken as a parameter.
+function addBillboard(seg, key, x, localZ, creative, y) {
   const mesh = MeshPool.acquire(key);
   mesh.position.set(x, y || 0, localZ);
   mesh.scale.setScalar(TRACK_SCALE);
@@ -639,7 +622,7 @@ function addBillboard(seg, key, x, localZ, creative, y, aspect) {
   // every reacquire rather than trusting the pool's leftover state.
   const panel = mesh.userData.panel;
   if (panel) {
-    panel.material.map = BillboardMedia.getTexture(creative, aspect);
+    panel.material.map = BillboardMedia.getTexture(creative);
     panel.material.needsUpdate = true;
   }
   seg.group.add(mesh);
