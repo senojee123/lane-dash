@@ -406,20 +406,13 @@ function buildBuilding() {
 function buildFlagFactory(material) {
   return function buildFlag() {
     const group = new THREE.Group();
-    // Taller pole than before (3.0 vs the original 2.0) for a more
-    // prominent presence — height isn't laterally gap-constrained the way
-    // width is (see the panel comment below), so that's where "bigger"
-    // comes from mostly. panel.position.x = 0 (CENTERED on the pole, not
-    // offset to one side) is deliberate: an offset panel doesn't mirror
-    // between the left/right placements addScenery uses (both sides get
-    // rotY=0), which would put it INSIDE the road on one side and
-    // overlapping row 0's own building line on the other — caught by
-    // checking the actual numbers before shipping this, not after.
-    const poleHeight = 3.0;
-    const pole = new THREE.Mesh(Geo.cylinder, Mat.pole);
-    pole.scale.set(0.06, poleHeight, 0.06);
-    pole.position.y = poleHeight / 2;
-    group.add(pole);
+    // panel.position.x = 0 (CENTERED on the pole, not offset to one side)
+    // is deliberate: an offset panel doesn't mirror between the left/right
+    // placements addScenery uses (both sides get rotY=0), which would put
+    // it INSIDE the road on one side and overlapping row 0's own building
+    // line on the other — caught by checking the actual numbers before
+    // shipping this, not after.
+    //
     // 0.8 wide, not bigger: the sidewalk gap between the road and row 0's
     // own building line is only 1.4 units total (verified — same gap the
     // billboard system hit this exact constraint against earlier), so this
@@ -429,9 +422,24 @@ function buildFlagFactory(material) {
     // sponsorLogoUrl) is roughly square and contain-fits without cropping
     // — a wide panel would just letterbox a square logo down to the same
     // effective size anyway.
+    //
+    // Pole height STOPS at the panel's base and the panel sits directly on
+    // top (like a road sign on a post) rather than running the pole's full
+    // height behind/through the panel's own vertical range — the previous
+    // version centered the panel on a pole that extended past it on both
+    // ends, so the pole visibly bisected the logo down the middle
+    // (user-reported, with a screenshot). Stacking them with zero
+    // vertical overlap makes that geometrically impossible instead of
+    // just visually unlikely.
+    const panelHeight = 1.0;
+    const poleHeight = 2.0;
+    const pole = new THREE.Mesh(Geo.cylinder, Mat.pole);
+    pole.scale.set(0.06, poleHeight, 0.06);
+    pole.position.y = poleHeight / 2;
+    group.add(pole);
     const panel = new THREE.Mesh(Geo.box, material);
-    panel.scale.set(0.8, 1.0, 0.04);
-    panel.position.y = poleHeight - 0.55;
+    panel.scale.set(0.8, panelHeight, 0.04);
+    panel.position.y = poleHeight + panelHeight / 2;
     group.add(panel);
     return group;
   };
