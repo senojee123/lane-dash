@@ -111,6 +111,20 @@ function randChoice(arr) { return arr[(Math.random() * arr.length) | 0]; }
 // ---------------------------------------------------------------------------
 // PLAYER
 // ---------------------------------------------------------------------------
+// Uniform shrink applied to both the visual model (below) and the collision
+// footprint (AssetRegistry.player.footprint, computed from this same
+// constant so the two can never drift apart). The character previously
+// read as tall/capable enough to plausibly jump over vehicles, which are
+// deliberately unjumpable no matter how short they look (see
+// VEHICLE_BLOCK_HEIGHT's comment in trafficVehicles.js) — this doesn't
+// change that rule, it just makes the character's own presence match it
+// better. Verified this doesn't tighten anything before applying it: jump
+// apex (2.91 scaled) and every barrier/vehicle collision height are fixed,
+// independent of player size; the one clearance that DOES scale with the
+// player — rolling under barrier_high — only gets MORE forgiving as the
+// player shrinks (0.094 -> 0.231 unit margin), never less.
+const PLAYER_SCALE = 0.88;
+
 function buildPlayer() {
   const group = new THREE.Group();
 
@@ -155,6 +169,14 @@ function buildPlayer() {
   armR.position.set(0.42, 1.42, 0);
 
   group.add(legL, legR, armL, armR);
+
+  // Applied to the whole group (not each limb individually) — scales every
+  // child's size AND local position together, so the character shrinks as
+  // one coherent whole rather than needing every hardcoded dimension above
+  // hand-edited. Doesn't interfere with the per-frame limb rotations
+  // runner.js's updatePlayer() sets on legL/legR/armL/armR — scale and
+  // rotation are independent transform components.
+  group.scale.setScalar(PLAYER_SCALE);
 
   group.userData.parts = { torso, head, hips, legL, legR, armL, armR };
   return group;
@@ -471,7 +493,10 @@ const AssetRegistry = {
   player: {
     type: 'primitive',
     build: buildPlayer,
-    footprint: { width: 0.72, height: 1.85, depth: 0.7, yBase: 0 },
+    // Derived from PLAYER_SCALE (see its comment above buildPlayer()) so
+    // the collision box can never drift out of sync with the visual model
+    // — both are the same base 0.72/1.85/0.7 numbers, shrunk together.
+    footprint: { width: 0.72 * PLAYER_SCALE, height: 1.85 * PLAYER_SCALE, depth: 0.7 * PLAYER_SCALE, yBase: 0 },
   },
   // JUMP-ONLY: solid from the ground up to y=1.8, no gap underneath.
   barrier_low: {
