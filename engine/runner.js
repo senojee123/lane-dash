@@ -513,7 +513,13 @@ function spawnCityRow(seg, side, row) {
     // assets.js), which is the direction the camera actually approaches
     // from, so no left/right flip is needed regardless of which side of the
     // road the building is on.
-    if (row.rooftopBillboardChance && Math.random() < row.rooftopBillboardChance) {
+    // squash > 0.6 guard: the last building in a row can get squashed to a
+    // near-invisible sliver right at the segment boundary (see `squash`
+    // above) while still being tall enough to host a billboard — without
+    // this, a prominent rooftop sign could end up sitting on a building
+    // rendered too thin to actually see, reading as a billboard floating
+    // with nothing visibly underneath it.
+    if (row.rooftopBillboardChance && squash > 0.6 && Math.random() < row.rooftopBillboardChance) {
       const creative = HAS_BILLBOARD_CREATIVES ? randChoice(RunnerBillboards) : null;
       addBillboard(seg, buildingX, buildingZ, 0, creative, fp.height * s);
     }
