@@ -515,20 +515,25 @@ function addParkingLot(seg, side, row, z, lotDepth) {
     addScenery(seg, SCENERY_KEYS.laneDash, centerX, lineZ, 1, Math.PI / 2, null, stretch);
   }
 
-  // Fence along the lot's FAR lateral edge only (away from the road, the
-  // side bordering row 1) — not the near/road-facing side, which should
-  // stay open like a real lot's entrance, and not the two Z-ends, which
-  // already border a building on each side (adding fence geometry flush
-  // against a building risks the exact kind of clipping this session spent
-  // a lot of effort fixing elsewhere). row.openLotFence is opt-in per row
-  // (only row 0 has it — see theme.js) so the two background rows, already
-  // kept lightweight (no billboards, no line stripes there either), don't
-  // pick up extra draw calls for a boundary the player is far from anyway.
-  // 0.2 inset keeps the posts sitting ON the pavement rather than
-  // overhanging past its own edge; clearance to row 1 verified in theme.js's
-  // CITY_ROWS[0] comment.
+  // Fence along the lot's NEAR lateral edge — the road-facing side — not
+  // the far edge. First pass put it at the far edge (bordering row 1,
+  // matching how a real lot's rear/side fencing usually works), but that
+  // does nothing for the actual problem: the pavement is the same dark
+  // asphalt as the road now (see buildParkingPavement's comment), and the
+  // ambiguous stretch is right where that pavement meets the road — which
+  // is also the part of the lot the player actually sees clearly as they
+  // run past. A fence tucked at the far edge, barely visible against the
+  // background buildings, doesn't mark that boundary at all. Not the two
+  // Z-ends, still — already border a building on each side, and fence
+  // geometry flush against a building risks the exact clipping class this
+  // session spent a lot of effort fixing elsewhere. row.openLotFence is
+  // opt-in per row (only row 0 has it — see theme.js) so the two
+  // background rows, already lighter-weight (no billboards, no line
+  // stripes there either), don't pick up extra draw calls for a boundary
+  // the player is far from anyway. 0.2 inset keeps the posts sitting ON
+  // the pavement, just clear of the road edge (0.5 units — verified).
   if (row.openLotFence) {
-    const fenceX = side * (near + width - 0.2);
+    const fenceX = side * (near + 0.2);
     for (let fenceZ = z - FENCE_SEGMENT_LENGTH / 2; fenceZ > z - lotDepth; fenceZ -= FENCE_SEGMENT_LENGTH) {
       addScenery(seg, SCENERY_KEYS.fence, fenceX, fenceZ, 1, Math.PI / 2);
     }

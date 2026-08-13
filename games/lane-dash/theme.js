@@ -144,14 +144,18 @@ const RunnerTheme = {
       // roughly where it was with the smaller eligible pool.
       rooftopBillboardChance: 0.2,
       openLotChance: 0.15,
-      // Widened from [8, 14]: buildings pack edge-to-edge, so the billboard
-      // (placed at the lot's own center) sits exactly depth/2 away from
-      // whichever building borders the lot on either side — at depth 8 that
-      // was only 4 units, tight enough for a tall row-0 building (up to 16)
-      // to occlude the sightline into the lot. 20 gives up to 10 units of
-      // clearance, and the wider range itself is more size variety (roughly
-      // 3-8 parking-line stripes now, was a narrow 3-6).
-      openLotDepth: [8, 20],
+      // Widened again, [8,20] -> [13,38]: a real car park reads as a car
+      // park partly through sheer number of marked spaces — at the old
+      // minimum (8) a lot only fit ~3 parking-line stripes (openLotLineSpacing
+      // 2.5), which read as too small/sparse. 13 guarantees ~5 stripes at
+      // the smallest roll; 38 allows up to ~15 on the biggest ones, with
+      // every size in between still possible (this is a random range, not
+      // every lot maxes out). Also more billboard sightline clearance as a
+      // side effect (the reason this range was widened the first time):
+      // depth/2 away from whichever building borders the lot, so even the
+      // new minimum (13) gives 6.5 units of clearance, more than the old
+      // maximum (20) did.
+      openLotDepth: [13, 38],
       // Chance a given open lot also gets a billboard (not every real lot
       // has one — at 0.6 that's already ~40% of lots billboard-free), and
       // how far past the row's own setback line it stands (lateral distance
