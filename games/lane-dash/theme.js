@@ -198,6 +198,16 @@ const RunnerTheme = {
       // roughly 2-5 units — see the rooftop billboard width guard in
       // runner.js for the actual numbers this is based on).
       openLotMinGap: 18,
+      // Block rhythm: no lot before 2 buildings since the last one, one
+      // forced (bypassing openLotChance's coin flip, but still gated by
+      // openLotMinGap above) once 4 buildings have gone by — without this
+      // a long run of buildings could go by with nothing but bad luck on
+      // the 0.15 roll, reading as "too close together" with no layout
+      // pattern. 2-4 buildings per block, same rhythm on all three rows —
+      // see spawnCityRow (engine/runner.js) for how blockMin/blockMax and
+      // openLotMinGap combine.
+      blockMin: 2,
+      blockMax: 4,
       // Minimum world-unit distance (buildings, since rooftop signs are
       // building-mounted) since the last rooftop sign before another can
       // roll — buildings pack edge-to-edge with zero gap, so without this
@@ -214,8 +224,40 @@ const RunnerTheme = {
       // here, freestanding in open lots below) are worth placing.
       signMinGap: 14,
     },
-    { setback: 15.5, maxWidth: 11, height: [10, 24], detail: 'low' },
-    { setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low' },
+    // Rows 1/2 previously had no open-lot config at all — 100% wall-to-wall
+    // buildings, the biggest single contributor to the "too packed, no
+    // layout" feel since they're the two furthest-back (tallest, most
+    // visible) rows. Same block-rhythm mechanism as row 0, reusing
+    // addParkingLot's exact code path, but deliberately lighter for a
+    // background row: no billboards (openLotBillboardChance omitted —
+    // sponsor ad inventory stays in row 0, where it's actually readable)
+    // and no painted parking-line stripes (openLotLineSpacing omitted —
+    // addParkingLot's line loop is a no-op without it, see its own
+    // comment), just flat pavement, cheaper than a building at the same
+    // spot rather than more expensive.
+    //
+    // openLotPavementSetback is picked so the pavement's near edge lands
+    // exactly on this row's OWN setback (ROAD_WIDTH/2 (5) +
+    // openLotPavementSetback = setback) — i.e. a lot fills exactly the
+    // X-band this row's buildings would otherwise occupy, never reaching
+    // into the row in front of or behind it. openLotPavementWidth stays
+    // just under maxWidth (same margin pattern as row 0's 8.7-under-9), so
+    // the far edge of the widest lot still clears the next row's own near
+    // edge: row 1's pavement reaches to 15.5+10.5=26.0, row 2 starts at
+    // 27.5 (1.5 clear); row 2's pavement reaches to 27.5+14.5=42.0, nothing
+    // beyond it.
+    {
+      setback: 15.5, maxWidth: 11, height: [10, 24], detail: 'low',
+      openLotChance: 0.15, openLotDepth: [10, 22],
+      openLotMinGap: 20, blockMin: 2, blockMax: 4,
+      openLotPavementSetback: 10.5, openLotPavementWidth: 10.5,
+    },
+    {
+      setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low',
+      openLotChance: 0.15, openLotDepth: [12, 26],
+      openLotMinGap: 24, blockMin: 2, blockMax: 4,
+      openLotPavementSetback: 22.5, openLotPavementWidth: 14.5,
+    },
   ],
 
   // AssetRegistry keys for the pieces of scenery the track generator places

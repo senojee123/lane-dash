@@ -529,6 +529,18 @@ function spawnCityRow(seg, side, row) {
   // segment's row is generated independently) — a rarer residual case than
   // the within-segment back-to-back one this actually fixes.
   let distanceSinceLastLot = Infinity;
+  // Building-COUNT since the last lot, separate from the world-unit
+  // distanceSinceLastLot above: that one guards billboard sightline
+  // clearance (why it's measured in units), this one gives the row an
+  // actual block rhythm (why it's measured in buildings) — no gap allowed
+  // before row.blockMin buildings, one forced once row.blockMax is hit
+  // (still gated by distanceSinceLastLot too, so a run of unusually narrow
+  // buildings can't force a lot before there's real clearance for it).
+  // Without this, gaps were purely a per-building coin flip once far
+  // enough from the last one — usually fine, but nothing stopped a long
+  // unbroken run of buildings between hits, which is the literal "too
+  // close together, no layout rhythm" feedback this fixes.
+  let buildingsSinceLastLot = 0;
   // Same problem, same fix, for rooftop signs mounted on individual
   // buildings instead of lots: buildings pack edge-to-edge with zero gap
   // between them, and rooftopBillboardChance is rolled independently per
@@ -552,7 +564,12 @@ function spawnCityRow(seg, side, row) {
     // numbers this is built from). Rolled here, before the building pick,
     // so it competes fairly with "place a building" at every packing
     // decision.
-    if (row.openLotChance && distanceSinceLastLot >= (row.openLotMinGap || 0) && Math.random() < row.openLotChance) {
+    const blockMin = row.blockMin || 0;
+    const blockMax = row.blockMax || Infinity;
+    const distanceOk = distanceSinceLastLot >= (row.openLotMinGap || 0);
+    const blockRoomOk = buildingsSinceLastLot >= blockMin;
+    const blockForced = buildingsSinceLastLot >= blockMax;
+    if (row.openLotChance && distanceOk && blockRoomOk && (blockForced || Math.random() < row.openLotChance)) {
       const remaining = z + SEGMENT_LENGTH;
       const rawLotDepth = row.openLotDepth[0] + Math.random() * (row.openLotDepth[1] - row.openLotDepth[0]);
       const lotDepth = Math.min(rawLotDepth, remaining);
@@ -574,6 +591,7 @@ function spawnCityRow(seg, side, row) {
       }
       z -= lotDepth;
       distanceSinceLastLot = 0;
+      buildingsSinceLastLot = 0;
       continue;
     }
 
@@ -630,6 +648,7 @@ function spawnCityRow(seg, side, row) {
     z -= depth;
     distanceSinceLastLot += depth;
     distanceSinceLastSign += depth;
+    buildingsSinceLastLot++;
   }
 }
 
