@@ -138,14 +138,22 @@ const RunnerTheme = {
       setback: 6.4, maxWidth: 9, height: [7, 16], detail: 'full',
       rooftopBillboardChance: 0.12,
       openLotChance: 0.15,
-      openLotDepth: [8, 14],
+      // Widened from [8, 14]: buildings pack edge-to-edge, so the billboard
+      // (placed at the lot's own center) sits exactly depth/2 away from
+      // whichever building borders the lot on either side — at depth 8 that
+      // was only 4 units, tight enough for a tall row-0 building (up to 16)
+      // to occlude the sightline into the lot. 20 gives up to 10 units of
+      // clearance, and the wider range itself is more size variety (roughly
+      // 3-8 parking-line stripes now, was a narrow 3-6).
+      openLotDepth: [8, 20],
       // Chance a given open lot also gets a billboard (not every real lot
-      // has one), and how far past the row's own setback line it stands —
-      // setback(6.4) + 4 = X=10.4. Panel half-width (4.4/2 * TRACK_SCALE
-      // 1.25 = 2.75) puts its near edge at 7.65 (2.65 clear of the road at
-      // 5) and its far edge at 13.15 (2.35 clear of row 1 at 15.5) — real
-      // margin on both sides, worked out by hand, not a near-miss like the
-      // freestanding-in-the-sidewalk-gap attempt this replaced.
+      // has one — at 0.6 that's already ~40% of lots billboard-free), and
+      // how far past the row's own setback line it stands — setback(6.4) +
+      // 4 = X=10.4. Panel half-width (4.4/2 * TRACK_SCALE 1.25 = 2.75) puts
+      // its near edge at 7.65 (2.65 clear of the road at 5) and its far
+      // edge at 13.15 (2.35 clear of row 1 at 15.5) — real margin on both
+      // sides, worked out by hand, not a near-miss like the freestanding-
+      // in-the-sidewalk-gap attempt this replaced.
       openLotBillboardChance: 0.6,
       openLotBillboardSetback: 4,
       // Every open lot (not just the ones that win openLotBillboardChance)
