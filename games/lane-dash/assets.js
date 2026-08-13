@@ -77,21 +77,6 @@ const Geo = {
     // simple capsule approximation using a cylinder + two spheres, built per-use in buildPlayer
     return null;
   })(),
-  // Flat right-triangle pennant, base at local x=0 (attaches to the flag
-  // pole) tapering to a point at x=1 — used by buildFlag() below. A custom
-  // shape rather than a stretched box because a box can't taper to a point;
-  // there's no built-in triangle primitive in three.js.
-  pennant: (function () {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
-      0, 0.5, 0,   // base, top
-      0, -0.5, 0,  // base, bottom
-      1, 0, 0,     // tip
-    ]), 3));
-    geo.setIndex([0, 1, 2]);
-    geo.computeVertexNormals();
-    return geo;
-  })(),
 };
 
 const Mat = {
@@ -124,6 +109,17 @@ const Mat = {
     color: 0xfff0b8, transparent: true, opacity: 0.15, depthWrite: false,
     blending: THREE.AdditiveBlending,
   }),
+  // Start-line flags (buildFlagFactory below) — three named materials
+  // (not built inline per-instance) so applyBrandConfig() (engine/
+  // runner.js) can reach them by name and swap in RunnerBrand.
+  // sponsorLogoUrl the same way it already does for Mat.coinFace.
+  // MeshBasicMaterial (unlit) + DoubleSide, same reasoning as the
+  // billboard panel: a logo reads at its own brightness regardless of
+  // scene lighting, and there's no "wrong side" to get backwards on a
+  // small flag seen from either direction.
+  flagGold: new THREE.MeshBasicMaterial({ color: Palette.flags[0], side: THREE.DoubleSide }),
+  flagPink: new THREE.MeshBasicMaterial({ color: Palette.flags[1], side: THREE.DoubleSide }),
+  flagPurple: new THREE.MeshBasicMaterial({ color: Palette.flags[2], side: THREE.DoubleSide }),
 };
 
 function randChoice(arr) { return arr[(Math.random() * arr.length) | 0]; }
@@ -400,24 +396,47 @@ function buildBuilding() {
 // ---------------------------------------------------------------------------
 // START-LINE FLAGS — one-time decoration at the very front of a fresh run
 // (engine/runner.js's spawnStartLine(), called only for the track's first
-// segment, never recycled/repeated). DoubleSide material sidesteps needing
-// a "which way does it face" convention like the billboards/buildings
-// needed: a small pennant read from any angle it's actually seen from, so
-// there's no wrong-side-facing failure mode to get wrong here.
+// segment, never recycled/repeated). Rectangular, not a tapering pennant —
+// a triangle crops/distorts a logo image badly as it narrows to a point,
+// where a flat rectangle displays one cleanly (this shape holds
+// RunnerBrand.sponsorLogoUrl when set — see applyBrandConfig(),
+// engine/runner.js — and falls back to its own flat brand color when not).
+// Takes a shared named Mat.flag* material (not a raw color) so
+// applyBrandConfig() can swap that ONE material's .map and every flag
+// instance sharing it updates together, same pattern as Mat.coinFace.
+// DoubleSide sidesteps needing a "which way does it face" convention like
+// the billboards/buildings needed — read fine from either direction.
 // ---------------------------------------------------------------------------
-function buildFlagFactory(color) {
+function buildFlagFactory(material) {
   return function buildFlag() {
     const group = new THREE.Group();
-    const poleHeight = 2.0;
+    // Taller pole than before (3.0 vs the original 2.0) for a more
+    // prominent presence — height isn't laterally gap-constrained the way
+    // width is (see the panel comment below), so that's where "bigger"
+    // comes from mostly. panel.position.x = 0 (CENTERED on the pole, not
+    // offset to one side) is deliberate: an offset panel doesn't mirror
+    // between the left/right placements addScenery uses (both sides get
+    // rotY=0), which would put it INSIDE the road on one side and
+    // overlapping row 0's own building line on the other — caught by
+    // checking the actual numbers before shipping this, not after.
+    const poleHeight = 3.0;
     const pole = new THREE.Mesh(Geo.cylinder, Mat.pole);
-    pole.scale.set(0.045, poleHeight, 0.045);
+    pole.scale.set(0.06, poleHeight, 0.06);
     pole.position.y = poleHeight / 2;
     group.add(pole);
-    const pennantMat = new THREE.MeshToonMaterial({ color, side: THREE.DoubleSide });
-    const pennant = new THREE.Mesh(Geo.pennant, pennantMat);
-    pennant.scale.set(0.6, 0.42, 1);
-    pennant.position.y = poleHeight - 0.24;
-    group.add(pennant);
+    // 0.8 wide, not bigger: the sidewalk gap between the road and row 0's
+    // own building line is only 1.4 units total (verified — same gap the
+    // billboard system hit this exact constraint against earlier), so this
+    // is centered at the same X the streetlights already use (ROAD_WIDTH/2
+    // + 0.7) with 0.3 units of real clearance on both sides. Near-square
+    // (0.8x1.0) rather than wide, since the logo itself (RunnerBrand.
+    // sponsorLogoUrl) is roughly square and contain-fits without cropping
+    // — a wide panel would just letterbox a square logo down to the same
+    // effective size anyway.
+    const panel = new THREE.Mesh(Geo.box, material);
+    panel.scale.set(0.8, 1.0, 0.04);
+    panel.position.y = poleHeight - 0.55;
+    group.add(panel);
     return group;
   };
 }
@@ -671,17 +690,17 @@ const AssetRegistry = {
   },
   flag_gold: {
     type: 'primitive',
-    build: buildFlagFactory(Palette.flags[0]),
-    footprint: { width: 0.6, height: 2, depth: 0.05, yBase: 0 },
+    build: buildFlagFactory(Mat.flagGold),
+    footprint: { width: 0.8, height: 3.0, depth: 0.04, yBase: 0 },
   },
   flag_pink: {
     type: 'primitive',
-    build: buildFlagFactory(Palette.flags[1]),
-    footprint: { width: 0.6, height: 2, depth: 0.05, yBase: 0 },
+    build: buildFlagFactory(Mat.flagPink),
+    footprint: { width: 0.8, height: 3.0, depth: 0.04, yBase: 0 },
   },
   flag_purple: {
     type: 'primitive',
-    build: buildFlagFactory(Palette.flags[2]),
-    footprint: { width: 0.6, height: 2, depth: 0.05, yBase: 0 },
+    build: buildFlagFactory(Mat.flagPurple),
+    footprint: { width: 0.8, height: 3.0, depth: 0.04, yBase: 0 },
   },
 };

@@ -324,12 +324,16 @@ const RunnerTheme = {
   START_FLAG_SPACING: 4.5,
   START_FLAG_FIRST_Z: 3,
   // Lateral OFFSET added to the (already-scaled) ROAD_WIDTH/2 at the
-  // runner.js call site — same convention as the streetlight offset just
-  // below (ROAD_WIDTH/2 + 0.7), NOT a pre-scale value multiplied
-  // separately. ROAD_WIDTH/2 is 5 at runtime; +0.5 puts flags at X=5.5 —
-  // 0.5 clear of the road edge, 0.9 clear of row 0's own building line
-  // (setback 6.4, itself already in this same scaled-world-unit space).
-  START_FLAG_X_OFFSET: 0.5,
+  // runner.js call site — same convention as (and now the same value as)
+  // the streetlight offset just below (ROAD_WIDTH/2 + 0.7), NOT a
+  // pre-scale value multiplied separately. The flag panel is 0.8 wide,
+  // centered on its pole (assets.js's buildFlagFactory) — the sidewalk gap
+  // between the road and row 0's own building line is only 1.4 units total
+  // (verified — the billboard system hit this exact constraint earlier),
+  // so 0.7 centers the panel with 0.3 units of real clearance on BOTH
+  // sides (5.7-0.4=5.3, 0.3 clear of the road at 5.0; 5.7+0.4=6.1, 0.3
+  // clear of the building line at 6.4) rather than favoring one side.
+  START_FLAG_X_OFFSET: 0.7,
 
   // Distance between streetlights (pre-scale — engine/runner.js multiplies
   // by TRACK_SCALE). Placed deterministically, alternating sides, keyed off

@@ -1305,6 +1305,23 @@ function applyBrandConfig() {
       : null;
     Mat.coinFace.needsUpdate = true;
   }
+  // Start-line flags (assets.js's buildFlagFactory) — same sponsor logo as
+  // the title screens, on each flag's own brand-color backing so a
+  // transparent-background logo still reads against a colored panel
+  // instead of showing a mismatched box. 0.8 aspect matches the panel's
+  // own 0.8-wide/1.0-tall shape (assets.js) so the logo isn't stretched.
+  // null (no sponsorLogoUrl configured) falls back to each flag's own
+  // flat brand color — a perfectly reasonable "no sponsor" flag, not a
+  // broken/empty one.
+  if (typeof Mat !== 'undefined' && Mat.flagGold) {
+    const flagMats = [Mat.flagGold, Mat.flagPink, Mat.flagPurple];
+    flagMats.forEach((mat, i) => {
+      mat.map = RunnerBrand.sponsorLogoUrl
+        ? BillboardMedia.getImageTexture(RunnerBrand.sponsorLogoUrl, 0.8, Palette.flags[i])
+        : null;
+      mat.needsUpdate = true;
+    });
+  }
   hudHigh.textContent = RunnerBrand.bestLabel + ': ' + Save.high.toLocaleString();
 }
 applyBrandConfig();
@@ -1448,7 +1465,19 @@ function runCountdown() {
 function startGame() {
   if (Game.state === 'playing' || Game.state === 'countdown') return;
   if (countdownTimer) clearTimeout(countdownTimer);
-  Game.speed = 0;
+  // BASE_SPEED, not 0 — the world not scrolling during the countdown is
+  // already fully handled by Game.state !== 'playing' gating tick()'s
+  // moveDelta block; Game.speed itself also feeds updateCamera()'s
+  // speedFactor = (Game.speed-BASE_SPEED)/(MAX_SPEED-BASE_SPEED), used to
+  // ease the camera's distance/height/FOV. At speed=0 that factor goes
+  // negative (~-0.73 with this game's numbers) and pulls the camera
+  // noticeably closer, lower, and ~6 degrees more zoomed-in for the ENTIRE
+  // countdown — plenty of time to fully settle into that wrong framing
+  // before "GO", so gameplay started already zoomed in, easing back out
+  // while also suddenly moving at full speed. Read as "obstacles spawn too
+  // close, impossible" (user report) — the obstacles' actual world
+  // positions were never the issue, only this speed=0 camera side effect.
+  Game.speed = BASE_SPEED;
   Game.score = 0;
   Game.coins = 0;
   Game.multiplier = 1;
