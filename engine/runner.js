@@ -593,8 +593,21 @@ function spawnCityRow(seg, side, row) {
     const distanceOk = distanceSinceLastLot >= (row.openLotMinGap || 0);
     const blockRoomOk = buildingsSinceLastLot >= blockMin;
     const blockForced = buildingsSinceLastLot >= blockMax;
-    if (row.openLotChance && distanceOk && blockRoomOk && (blockForced || Math.random() < row.openLotChance)) {
-      const remaining = z + SEGMENT_LENGTH;
+    // remaining computed here, BEFORE deciding to open a lot at all — the
+    // previous version only checked this after already committing to a lot
+    // (Math.min(rawLotDepth, remaining) below), so a lot could still
+    // trigger with very little segment room left and render as a tiny
+    // clamped fragment (a couple of parking lines, barely readable as a
+    // car park) even after raising the ROLLED minimum to 13 — confirmed
+    // from a screenshot, the roll range fix alone didn't cover this case.
+    // Requiring the full rolled minimum to fit before opening a lot at all
+    // means every lot that DOES appear is always at least its real
+    // intended size; too little room left just means one more (possibly
+    // squashed, same as any other segment-boundary building) building
+    // instead, same as if openLotChance simply hadn't hit this time.
+    const remaining = z + SEGMENT_LENGTH;
+    if (row.openLotChance && distanceOk && blockRoomOk && remaining >= row.openLotDepth[0]
+        && (blockForced || Math.random() < row.openLotChance)) {
       const rawLotDepth = row.openLotDepth[0] + Math.random() * (row.openLotDepth[1] - row.openLotDepth[0]);
       const lotDepth = Math.min(rawLotDepth, remaining);
       if (row.openLotPavementWidth) addParkingLot(seg, side, row, z, lotDepth);
@@ -663,7 +676,9 @@ function spawnCityRow(seg, side, row) {
     const width = fp.width * s;
     let depth = fp.depth * s;
 
-    const remaining = z + SEGMENT_LENGTH;
+    // remaining already computed above (before the open-lot check) — z
+    // hasn't changed since then if execution reached here (the lot branch
+    // `continue`s before falling through to this building-placement path).
     let squash = 1;
     if (depth > remaining) { squash = remaining / depth; depth = remaining; }
 
