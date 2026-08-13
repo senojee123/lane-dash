@@ -114,7 +114,7 @@ const CITY_ROWS = RunnerTheme.CITY_ROWS;
 // ---------------------------------------------------------------------------
 const canvas = document.getElementById('game-canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, RunnerTheme.MAX_PIXEL_RATIO));
 renderer.setSize(window.innerWidth, window.innerHeight);
 if (THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
 DevFPS.attachRenderer(renderer); // no-op unless ?debug/?fps — see engine/dev-fps.js

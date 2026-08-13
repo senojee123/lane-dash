@@ -20,6 +20,17 @@ const RunnerTheme = {
   // Pre-scale lane centers (x, world units) — engine/runner.js multiplies these by
   // TRACK_SCALE. Must stay a 3-element array; lane math elsewhere assumes 3.
   LANE_OFFSETS: [-2.2, 0, 2.2],
+
+  // Render resolution cap: renderer.setPixelRatio(Math.min(devicePixelRatio,
+  // MAX_PIXEL_RATIO)). This is the single biggest lever on GPU render cost —
+  // a high-DPI screen (most phones, retina laptops) has devicePixelRatio 2-3,
+  // and rendering at the full value costs 4-9x the pixels of rendering at 1x.
+  // 1.5 trades a small amount of sharpness for real GPU headroom. Deployment-
+  // dependent: a dedicated jumbotron/stadium screen with more GPU to spare
+  // (and where the screen is viewed from further away, hiding the softening)
+  // could reasonably run this higher; a phone-first deployment could go
+  // lower still.
+  MAX_PIXEL_RATIO: 1.5,
   // Pre-scale road width.
   ROAD_WIDTH: 8,
   SEGMENT_LENGTH: 30,
