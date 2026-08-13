@@ -23,5 +23,14 @@
    a page reload, once that transport exists.
 ============================================================================ */
 const RunnerBillboards = [
-  { type: 'image', url: 'https://images.seeklogo.com/logo-png/29/1/dialog-sri-lanka-logo-png_seeklogo-296843.png' },
+  // Self-hosted (games/lane-dash/assets/branding/), not hotlinked — image
+  // creatives get drawn onto a canvas to build a WebGL texture
+  // (BillboardMedia.getTexture -> compositeContainTexture), which requires
+  // a same-origin or CORS-enabled source. The site this logo came from
+  // sends no Access-Control-Allow-Origin header, which silently broke
+  // billboards (while working fine for brand.js's sponsorLogoUrl, a plain
+  // <img> tag with no such restriction) until this was tracked down. Same
+  // file as brand.js's sponsorLogoUrl/collectibleImageUrl — see the
+  // comment there for the full explanation.
+  { type: 'image', url: 'assets/branding/sponsor-logo.png' },
 ];

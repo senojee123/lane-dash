@@ -24,9 +24,42 @@ without touching game mechanics (see `brand.js`'s header comment).
 | In-game billboards | `RunnerBillboards` array | `billboards.js` | `{ type: 'image'\|'video', url }` entries, picked at random per billboard slot (rooftop-mounted or in open-lot car parks — see `theme.js`'s `CITY_ROWS[0]` for placement odds). Empty array = every slot shows a neutral "YOUR AD HERE" placeholder, so ad inventory always reads as intentional even unconfigured. |
 | Brand color palette | CSS custom properties (`--rd-gold-1`, `--rd-gold-2`, `--rd-accent-3`, `--rd-accent-4`, `--rd-highlight`, `--rd-mult-color`, `--rd-collectible-color`, `--rd-bg`) | `index.html`'s `:root` block (values), `engine/runner.css`'s `:root` (what each one controls) | Title gradient, HUD accents, buttons, background. Not currently driven by `RunnerBrand` / hot-reloadable — a reskin edits the CSS block directly today. Worth promoting into `RunnerBrand` if the platform needs to push color changes live. |
 
-All of the above currently point at one placeholder image (a user-supplied
-logo URL) across every optional slot, just to exercise the full surface —
-swap each field independently once real per-sponsor assets exist.
+All of the above currently point at one placeholder image, self-hosted at
+`games/lane-dash/assets/branding/sponsor-logo.png`, across every optional
+slot — just to exercise the full surface. Swap each field independently
+once real per-sponsor assets exist.
+
+## Important: image URLs need CORS for two of the three surfaces
+
+`sponsorLogoUrl` is a plain `<img>` tag — any URL works, no restrictions.
+
+`collectibleImageUrl` and `RunnerBillboards[].url` are different: both get
+drawn onto a canvas to build a WebGL texture (`BillboardMedia.getTexture` /
+`.getImageTexture`, `engine/billboard-media.js`), and **browsers refuse to
+upload a cross-origin image to WebGL unless the hosting server sends an
+`Access-Control-Allow-Origin` header.** This isn't a bug in this game's
+code or something fixable client-side — it's a browser security rule that
+applies to any WebGL app pulling in a cross-origin image, full stop.
+
+Found this the hard way: the original placeholder was hotlinked from an
+external logo site with no CORS support, which worked fine for
+`sponsorLogoUrl` (plain `<img>`) but silently failed for the billboard/coin
+versions (no crash — `compositeContainTexture`'s `img.onerror` logs a
+console warning and falls back to the neutral placeholder panel, so it's
+a quiet "why is my ad blank" rather than a visible bug). Switched the
+placeholder to a self-hosted copy to fix it for local dev.
+
+**For the real platform integration**: when a sponsor uploads a file
+through the dashboard, whatever URL that upload flow hands back needs to
+come from a CORS-enabled host (most asset storage built for this — S3+
+CloudFront with a CORS policy, Cloudinary, GCS, Azure Blob with CORS
+rules — supports it; it's a standard requirement for any canvas/WebGL
+consumer of user-uploaded images, not unusual to ask for). No code change
+needed on this game's side either way — `RunnerBrand`/`RunnerBillboards`
+already accept any URL — but this is the one thing worth confirming with
+whoever owns the upload pipeline before assuming sponsor-uploaded
+billboard/coin images will actually render, since a missing CORS header
+fails silently rather than with an obvious error.
 
 ## Identified, not built
 

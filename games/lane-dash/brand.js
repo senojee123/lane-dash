@@ -24,7 +24,18 @@ const RunnerBrand = {
   // cropped/stretched) via applyBrandConfig() in engine/runner.js — plain
   // <img>, not composited onto anything, so a transparent-background PNG
   // just sits on the screen's own dark background.
-  sponsorLogoUrl: 'https://images.seeklogo.com/logo-png/29/1/dialog-sri-lanka-logo-png_seeklogo-296843.png',
+  //
+  // Self-hosted (assets/branding/), not hotlinked from the logo site it
+  // came from — that site sends no Access-Control-Allow-Origin header
+  // (checked: `curl -I` on its URL), which is fine for a plain <img> tag
+  // like this one but silently breaks collectibleImageUrl/billboards
+  // below, both of which have to draw the image onto a canvas to build a
+  // WebGL texture, and browsers refuse that for a cross-origin image with
+  // no CORS header (crossOrigin='anonymous' either fails the load outright
+  // or taints the canvas so WebGL rejects the texture upload). Same file
+  // reused for all three so there's only one same-origin copy to keep
+  // in sync — swap this path once real per-sponsor assets exist.
+  sponsorLogoUrl: 'assets/branding/sponsor-logo.png',
 
   // The collectible — today "coins". Renaming this updates every place the
   // word appears in the UI (HUD, bank-line, game-over, pause). Recoloring
@@ -41,7 +52,10 @@ const RunnerBrand = {
   // "contain" fit (BillboardMedia.getImageTexture, engine/billboard-
   // media.js) onto collectibleColor as the backing, so a transparent-
   // background logo blends in rather than showing a mismatched square.
-  collectibleImageUrl: 'https://images.seeklogo.com/logo-png/29/1/dialog-sri-lanka-logo-png_seeklogo-296843.png',
+  // Same self-hosted file as sponsorLogoUrl above — see its comment for
+  // why this one specifically needs a same-origin/CORS-enabled source
+  // (goes through a canvas -> WebGL texture, unlike the plain <img> logo).
+  collectibleImageUrl: 'assets/branding/sponsor-logo.png',
 
   // Score / points.
   scoreLabel: 'Score',
