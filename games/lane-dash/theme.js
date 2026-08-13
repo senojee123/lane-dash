@@ -189,6 +189,14 @@ const RunnerTheme = {
       // billboard always reads as standing IN the lot, not near it.
       openLotPavementSetback: 0.3,
       openLotPavementWidth: 8.7,
+      // Fence along the lot's far edge (away from the road) only — gives
+      // the lot a visibly enclosed "this is a car park" boundary instead of
+      // relying on pavement color + lines alone. See addParkingLot,
+      // engine/runner.js, for exactly which edge and why (not the two
+      // Z-ends, not the road-facing side). Off on rows 1/2 (background,
+      // already lighter-weight — no billboards or line stripes there
+      // either) to avoid extra draw calls the player is far from anyway.
+      openLotFence: true,
       // Spacing between painted parking-line stripes along the lot's depth,
       // and how much of the pavement's own width each stripe spans (7 of
       // the 8.7 total, leaving a small margin so lines don't touch the
@@ -275,6 +283,7 @@ const RunnerTheme = {
     laneDash: 'lane_dash',
     billboard: 'billboard',
     parkingLot: 'parking_lot',
+    fence: 'fence',
   },
 
   // Distance between streetlights (pre-scale — engine/runner.js multiplies

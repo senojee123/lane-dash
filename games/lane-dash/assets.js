@@ -467,10 +467,46 @@ function buildLaneDash() {
 // visually close enough to pavement, and one less thing to add.
 function buildParkingPavement() {
   const group = new THREE.Group();
-  const mesh = new THREE.Mesh(Geo.box, Mat.sidewalk);
+  // Mat.road, not Mat.sidewalk — a real parking lot is asphalt, the same
+  // dark surface as the road it connects to, not light sidewalk concrete.
+  // The lighter sidewalk color read ambiguously as "is this a side road?"
+  // (user feedback); the parking-line stripes (drawn on top, see
+  // addParkingLot in engine/runner.js) and the fence below are what mark
+  // this as a distinct lot, not the pavement color itself — same as a real
+  // parking lot, where fencing/lines/curbs do that job, not a color change.
+  const mesh = new THREE.Mesh(Geo.box, Mat.road);
   mesh.scale.set(1, 0.01, 1);
   mesh.position.y = 0.006; // proud of the grass, but below lane_dash's 0.012 so parking-line stripes drawn on top never z-fight
   group.add(mesh);
+  return group;
+}
+
+// Simple post-and-rail fence segment: two thin posts at the ends, two thin
+// horizontal rails connecting them. Reuses Mat.pole (same dark metal look
+// as streetlights/billboard poles) rather than a new material. Symmetric
+// around its own local-X center, so unlike the billboard panel this needs
+// no "which way does it face" convention — engine/runner.js's addParkingLot
+// rotates it 90 degrees (same trick already used to turn the lane_dash
+// stripe primitive into a parking line) to run the segment's length along
+// the lot's Z-depth instead of its own local X.
+const FENCE_SEGMENT_LENGTH = 2.2;
+const FENCE_HEIGHT = 1.1;
+function buildFence() {
+  const group = new THREE.Group();
+  const postL = new THREE.Mesh(Geo.cylinder, Mat.pole);
+  postL.scale.set(0.06, FENCE_HEIGHT, 0.06);
+  postL.position.set(-FENCE_SEGMENT_LENGTH / 2, FENCE_HEIGHT / 2, 0);
+  group.add(postL);
+  const postR = postL.clone();
+  postR.position.x = FENCE_SEGMENT_LENGTH / 2;
+  group.add(postR);
+  const railTop = new THREE.Mesh(Geo.box, Mat.pole);
+  railTop.scale.set(FENCE_SEGMENT_LENGTH, 0.06, 0.06);
+  railTop.position.y = FENCE_HEIGHT;
+  group.add(railTop);
+  const railMid = railTop.clone();
+  railMid.position.y = FENCE_HEIGHT * 0.55;
+  group.add(railMid);
   return group;
 }
 
@@ -547,5 +583,10 @@ const AssetRegistry = {
     type: 'primitive',
     build: buildParkingPavement,
     footprint: { width: 1, height: 1, depth: 1, yBase: 0 },
+  },
+  fence: {
+    type: 'primitive',
+    build: buildFence,
+    footprint: { width: FENCE_SEGMENT_LENGTH, height: FENCE_HEIGHT, depth: 0.12, yBase: 0 },
   },
 };

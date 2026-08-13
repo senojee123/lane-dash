@@ -514,6 +514,25 @@ function addParkingLot(seg, side, row, z, lotDepth) {
   for (let lineZ = z - row.openLotLineSpacing / 2; lineZ > z - lotDepth; lineZ -= row.openLotLineSpacing) {
     addScenery(seg, SCENERY_KEYS.laneDash, centerX, lineZ, 1, Math.PI / 2, null, stretch);
   }
+
+  // Fence along the lot's FAR lateral edge only (away from the road, the
+  // side bordering row 1) — not the near/road-facing side, which should
+  // stay open like a real lot's entrance, and not the two Z-ends, which
+  // already border a building on each side (adding fence geometry flush
+  // against a building risks the exact kind of clipping this session spent
+  // a lot of effort fixing elsewhere). row.openLotFence is opt-in per row
+  // (only row 0 has it — see theme.js) so the two background rows, already
+  // kept lightweight (no billboards, no line stripes there either), don't
+  // pick up extra draw calls for a boundary the player is far from anyway.
+  // 0.2 inset keeps the posts sitting ON the pavement rather than
+  // overhanging past its own edge; clearance to row 1 verified in theme.js's
+  // CITY_ROWS[0] comment.
+  if (row.openLotFence) {
+    const fenceX = side * (near + width - 0.2);
+    for (let fenceZ = z - FENCE_SEGMENT_LENGTH / 2; fenceZ > z - lotDepth; fenceZ -= FENCE_SEGMENT_LENGTH) {
+      addScenery(seg, SCENERY_KEYS.fence, fenceX, fenceZ, 1, Math.PI / 2);
+    }
+  }
 }
 
 function spawnCityRow(seg, side, row) {
