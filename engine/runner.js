@@ -823,7 +823,7 @@ function spawnStreetlights(seg) {
 // obstacle-free for its own full length (populateSegment's startGapZ
 // handling skips the obstacle-placement loop entirely for segment 0), so
 // this has clear room regardless of what obstacles/scenery would otherwise
-// roll there. Rotation left at the addScenery default (0) — the pennant
+// roll there. Rotation left at the addScenery default (0) — the flag panel
 // material is DoubleSide (see buildFlagFactory, assets.js), so unlike
 // billboards/buildings there's no "wrong side" to get backwards.
 // ---------------------------------------------------------------------------
@@ -834,14 +834,13 @@ const START_FLAG_FIRST_Z = RunnerTheme.START_FLAG_FIRST_Z * TRACK_SCALE;
 // convention as the streetlight offset just above (ROAD_WIDTH/2 + 0.7) —
 // see theme.js's START_FLAG_X_OFFSET comment for the clearance numbers.
 const START_FLAG_X = ROAD_WIDTH / 2 + RunnerTheme.START_FLAG_X_OFFSET;
-const START_FLAG_KEYS = SCENERY_KEYS.flags;
+const START_FLAG_KEY = SCENERY_KEYS.flag;
 
 function spawnStartLine(seg) {
   for (let i = 0; i < START_FLAG_COUNT; i++) {
     const localZ = -START_FLAG_FIRST_Z - i * START_FLAG_SPACING;
-    const key = START_FLAG_KEYS[i % START_FLAG_KEYS.length];
-    addScenery(seg, key, -START_FLAG_X, localZ, TRACK_SCALE, 0);
-    addScenery(seg, key, START_FLAG_X, localZ, TRACK_SCALE, 0);
+    addScenery(seg, START_FLAG_KEY, -START_FLAG_X, localZ, TRACK_SCALE, 0);
+    addScenery(seg, START_FLAG_KEY, START_FLAG_X, localZ, TRACK_SCALE, 0);
   }
 }
 
@@ -1306,21 +1305,19 @@ function applyBrandConfig() {
     Mat.coinFace.needsUpdate = true;
   }
   // Start-line flags (assets.js's buildFlagFactory) — same sponsor logo as
-  // the title screens, on each flag's own brand-color backing so a
-  // transparent-background logo still reads against a colored panel
-  // instead of showing a mismatched box. 0.8 aspect matches the panel's
-  // own 0.8-wide/1.0-tall shape (assets.js) so the logo isn't stretched.
-  // null (no sponsorLogoUrl configured) falls back to each flag's own
-  // flat brand color — a perfectly reasonable "no sponsor" flag, not a
-  // broken/empty one.
-  if (typeof Mat !== 'undefined' && Mat.flagGold) {
-    const flagMats = [Mat.flagGold, Mat.flagPink, Mat.flagPurple];
-    flagMats.forEach((mat, i) => {
-      mat.map = RunnerBrand.sponsorLogoUrl
-        ? BillboardMedia.getImageTexture(RunnerBrand.sponsorLogoUrl, 0.8, Palette.flags[i])
-        : null;
-      mat.needsUpdate = true;
-    });
+  // the title screens, on a plain white backing (never a competing color —
+  // see Mat.flag's comment) so a transparent-background logo reads
+  // cleanly. 0.8 aspect matches the panel's own 0.8-wide/1.0-tall shape
+  // (assets.js) so the logo isn't stretched — compositeContainTexture
+  // (engine/billboard-media.js) always letterboxes rather than cropping,
+  // so the logo is never cut off regardless of its own aspect ratio.
+  // null (no sponsorLogoUrl configured) falls back to a plain white flag —
+  // a reasonable "no sponsor" default, not a broken/empty one.
+  if (typeof Mat !== 'undefined' && Mat.flag) {
+    Mat.flag.map = RunnerBrand.sponsorLogoUrl
+      ? BillboardMedia.getImageTexture(RunnerBrand.sponsorLogoUrl, 0.8, 0xffffff)
+      : null;
+    Mat.flag.needsUpdate = true;
   }
   hudHigh.textContent = RunnerBrand.bestLabel + ': ' + Save.high.toLocaleString();
 }

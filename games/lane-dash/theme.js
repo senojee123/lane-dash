@@ -306,8 +306,8 @@ const RunnerTheme = {
     parkingLot: 'parking_lot',
     fence: 'fence',
     // Start-line flags (engine/runner.js's spawnStartLine, one-time
-    // decoration at the front of a fresh run) — cycled through in order.
-    flags: ['flag_gold', 'flag_pink', 'flag_purple'],
+    // decoration at the front of a fresh run).
+    flag: 'flag',
   },
 
   // Start-line flag layout: START_FLAG_COUNT per side, START_FLAG_SPACING

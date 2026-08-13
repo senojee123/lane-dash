@@ -58,11 +58,6 @@ const Palette = {
   vehicles: [0xe63946, 0x1d8feb, 0xf4a300, 0x2ecc71, 0x9b5de5, 0xf15bb5],
   treeFoliage: [0x2d9d5b, 0x3bb273, 0x1f8a4c],
   gold: 0xffd166,
-  // Start-line flags (buildFlag() below) — same gold/pink/purple trio as
-  // the title logo's gradient (index.html's --rd-gold-1/--rd-accent-3/
-  // --rd-accent-4) so the one-time start moment reads as this game's own
-  // branding rather than arbitrary decoration colors.
-  flags: [0xffd166, 0xff5f8f, 0x7c4dff],
 };
 
 // -------- shared geometries & materials (created ONCE, reused everywhere) --------
@@ -109,17 +104,18 @@ const Mat = {
     color: 0xfff0b8, transparent: true, opacity: 0.15, depthWrite: false,
     blending: THREE.AdditiveBlending,
   }),
-  // Start-line flags (buildFlagFactory below) — three named materials
-  // (not built inline per-instance) so applyBrandConfig() (engine/
-  // runner.js) can reach them by name and swap in RunnerBrand.
-  // sponsorLogoUrl the same way it already does for Mat.coinFace.
-  // MeshBasicMaterial (unlit) + DoubleSide, same reasoning as the
-  // billboard panel: a logo reads at its own brightness regardless of
-  // scene lighting, and there's no "wrong side" to get backwards on a
-  // small flag seen from either direction.
-  flagGold: new THREE.MeshBasicMaterial({ color: Palette.flags[0], side: THREE.DoubleSide }),
-  flagPink: new THREE.MeshBasicMaterial({ color: Palette.flags[1], side: THREE.DoubleSide }),
-  flagPurple: new THREE.MeshBasicMaterial({ color: Palette.flags[2], side: THREE.DoubleSide }),
+  // Start-line flags (buildFlagFactory below) — one named material (not
+  // built inline per-instance) so applyBrandConfig() (engine/runner.js)
+  // can reach it and swap in RunnerBrand.sponsorLogoUrl the same way it
+  // already does for Mat.coinFace. Plain white: a colored backing behind
+  // a sponsor logo competes with it rather than framing it cleanly, and
+  // three DIFFERENT colors across the flag line (the previous version)
+  // read as visual clutter rather than one coherent branded moment — user
+  // feedback, with a screenshot. MeshBasicMaterial (unlit) + DoubleSide,
+  // same reasoning as the billboard panel: a logo reads at its own
+  // brightness regardless of scene lighting, and there's no "wrong side"
+  // to get backwards on a small flag seen from either direction.
+  flag: new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide }),
 };
 
 function randChoice(arr) { return arr[(Math.random() * arr.length) | 0]; }
@@ -688,19 +684,9 @@ const AssetRegistry = {
     build: buildFence,
     footprint: { width: FENCE_SEGMENT_LENGTH, height: FENCE_HEIGHT, depth: 0.12, yBase: 0 },
   },
-  flag_gold: {
+  flag: {
     type: 'primitive',
-    build: buildFlagFactory(Mat.flagGold),
-    footprint: { width: 0.8, height: 3.0, depth: 0.04, yBase: 0 },
-  },
-  flag_pink: {
-    type: 'primitive',
-    build: buildFlagFactory(Mat.flagPink),
-    footprint: { width: 0.8, height: 3.0, depth: 0.04, yBase: 0 },
-  },
-  flag_purple: {
-    type: 'primitive',
-    build: buildFlagFactory(Mat.flagPurple),
+    build: buildFlagFactory(Mat.flag),
     footprint: { width: 0.8, height: 3.0, depth: 0.04, yBase: 0 },
   },
 };
