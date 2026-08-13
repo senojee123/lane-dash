@@ -1756,7 +1756,20 @@ function updatePlayer(dt) {
 let rigX = 0;
 
 function updateCamera(dt) {
-  const speedFactor = (Game.speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED);
+  // Gated on Game.state, not just trusting Game.speed to hold a sane value —
+  // Game.speed is only a MEANINGFUL "how fast is the world moving" number
+  // while Game.state === 'playing'; every other state (menu, countdown,
+  // paused, gameover) has no defined contract for what it should contain,
+  // and nothing enforces one. Whoever last touched it for an unrelated
+  // reason (e.g. the pre-run countdown briefly setting it to 0, thinking
+  // "the world doesn't move here anyway") could silently feed this
+  // easing math a wrong value again — it did, and pulled the camera ~6
+  // degrees more zoomed-in with nothing actually wrong gameplay-side. This
+  // check makes that whole bug class structurally impossible here instead
+  // of relying on every future caller to remember to keep Game.speed
+  // "sane" outside of gameplay: the camera can ONLY react to speed while
+  // speed is actually a real gameplay quantity.
+  const speedFactor = Game.state === 'playing' ? (Game.speed - BASE_SPEED) / (MAX_SPEED - BASE_SPEED) : 0;
 
   // ---- rig: forward follow + subtle lateral drift -------------------------
   // The runner is authored at z = 0 and the world scrolls past, so tracking
