@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Lane Dash Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rd-bg: #0a0a14;
+    --rd-gold-1: #ffe259;
+    --rd-gold-2: #ffa751;
+    --rd-accent-3: #ff5f8f;
+    --rd-accent-4: #7c4dff;
+    --rd-highlight: #ffd166;
+    --rd-mult-color: #7CFF9E;
+    --rd-collectible-color: #ffd166;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% -10%, #201335 0%, var(--rd-bg) 70%);
+    color: #f7fafc;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .header {
+    text-align: center;
+    position: relative;
+    padding: 10px 0;
+  }
+
+  .back-btn {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f7fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 18px;
+    transition: background 0.2s;
+  }
+
+  .back-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    background: linear-gradient(135deg, var(--rd-gold-1) 0%, var(--rd-gold-2) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-transform: uppercase;
+  }
+
+  .live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #48bb78;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(72, 187, 120, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(72, 187, 120, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(72, 187, 120, 0); }
+  }
+
+  .live-text {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #48bb78;
+  }
+
+  .board-panel {
+    background: linear-gradient(160deg, #121226, #1e1330);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 24px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+
+  .row-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    list-style: none;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 14px;
+    padding: 12px 16px;
+  }
+
+  .row.top-1 {
+    background: linear-gradient(135deg, rgba(255, 226, 89, 0.1) 0%, rgba(255, 226, 89, 0.02) 100%);
+    border-color: rgba(255, 226, 89, 0.3);
+  }
+
+  .row.top-2 {
+    background: linear-gradient(135deg, rgba(226, 232, 240, 0.08) 0%, rgba(226, 232, 240, 0.02) 100%);
+    border-color: rgba(226, 232, 240, 0.25);
+  }
+
+  .row.top-3 {
+    background: linear-gradient(135deg, rgba(221, 107, 32, 0.08) 0%, rgba(221, 107, 32, 0.02) 100%);
+    border-color: rgba(221, 107, 32, 0.25);
+  }
+
+  .rank-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #a0aec0;
+  }
+
+  .top-1 .rank-badge {
+    background: var(--rd-gold-1);
+    color: #1a202c;
+  }
+
+  .top-2 .rank-badge {
+    background: var(--silver);
+    color: #1a202c;
+  }
+
+  .top-3 .rank-badge {
+    background: var(--bronze);
+    color: #f7fafc;
+  }
+
+  .player-name {
+    flex: 1;
+    font-weight: 700;
+    font-size: 15px;
+    color: #f7fafc;
+  }
+
+  .player-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 16px;
+    color: var(--rd-gold-1);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #a0aec0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--rd-gold-1) 0%, var(--rd-gold-2) 100%);
+    border: none;
+    border-radius: 18px;
+    color: #0c0b15;
+    font-weight: 800;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(255, 226, 89, 0.2);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .action-btn:active {
+    transform: scale(0.98);
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <a href="index.html" class="back-btn">&#8592;</a>
+    <h1>Leaderboard</h1>
+    <div class="live-indicator">
+      <div class="live-dot"></div>
+      <div class="live-text">Live updates</div>
+    </div>
+  </div>
+
+  <div class="board-panel">
+    <ul class="row-list" id="leaderboard-rows">
+      <div class="empty-state">Loading high scores...</div>
+    </ul>
+  </div>
+
+  <a href="index.html" class="action-btn">Run Again</a>
+</div>
+
+<!-- Load Supabase configuration -->
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  (function () {
+    const listEl = document.getElementById('leaderboard-rows');
+
+    // Read active brand styles from CSS vars so the page theme maps to sponsor colors
+    const rootStyle = getComputedStyle(document.documentElement);
+    const primaryColor = rootStyle.getPropertyValue('--rd-gold-1').trim();
+    if (primaryColor) {
+      document.querySelectorAll('.player-score').forEach(el => el.style.color = primaryColor);
+    }
+
+    if (!window.GAME_CONFIG || !window.GAME_CONFIG.SUPABASE_URL || window.GAME_CONFIG.SUPABASE_URL === 'YOUR_SUPABASE_PROJECT_URL_HERE') {
+      listEl.innerHTML = '<div class="empty-state">Supabase is not configured yet. Set up config.js to sync scores!</div>';
+      return;
+    }
+
+    const client = window.supabase.createClient(window.GAME_CONFIG.SUPABASE_URL, window.GAME_CONFIG.SUPABASE_ANON_KEY);
+
+    async function loadScores() {
+      try {
+        const { data, error } = await client
+          .from(window.GAME_CONFIG.SCORES_TABLE || 'scores')
+          .select('player_name, score')
+          .order('score', { ascending: false })
+          .limit(10);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+          listEl.innerHTML = '<div class="empty-state">No runs recorded yet. Be the first to play!</div>';
+          return;
+        }
+
+        listEl.innerHTML = data.map((row, index) => {
+          const rank = index + 1;
+          let rankClass = '';
+          if (rank === 1) rankClass = 'top-1';
+          else if (rank === 2) rankClass = 'top-2';
+          else if (rank === 3) rankClass = 'top-3';
+
+          return `
+            <li class="row ${rankClass}">
+              <div class="rank-badge">${rank}</div>
+              <div class="player-name">${escapeHtml(row.player_name || 'Anonymous')}</div>
+              <div class="player-score">${Number(row.score).toLocaleString()}</div>
+            </li>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to fetch leaderboard:', err);
+        listEl.innerHTML = '<div class="empty-state">Failed to load scores. Checking server...</div>';
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    loadScores();
+    setInterval(loadScores, 8000); // Poll every 8 seconds
+  })();
+</script>
+</body>
+</html>
