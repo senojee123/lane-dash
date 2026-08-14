@@ -4,8 +4,8 @@
    (URL + public anon key) as the game — this page only reads `scores`.
 ======================================================================== */
 window.LEADERBOARD_CONFIG = {
-  SUPABASE_URL: 'https://ornjmnakoxjnjvvqqeho.supabase.co',
-  SUPABASE_ANON_KEY: 'sb_publishable_RO20qsp65m4ozJ2R5udNQg__lbF9QzD',
+  SUPABASE_URL: 'https://awjaovibrslzghflwwin.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_OPviUM9Hl4QCxv6F3v2nAQ_F9tgHYeg',
   SCORES_TABLE: 'scores',
 
   TOP_N: 10,
