@@ -147,12 +147,17 @@ const RunnerTheme = {
       // small bump, given how much the eligible surface has already
       // shrunk from both directions.
       rooftopBillboardChance: 0.4,
-      // Lowered from 0.15, and blockMin/blockMax below raised from 2/4 to
-      // 3/6 — the block-rhythm mechanism (loose blocks of buildings, then
-      // a forced gap) was making lots feel too frequent overall (user
-      // feedback). Bigger blocks between lots, and a smaller chance while
-      // in the "optional" window between blockMin and blockMax.
-      openLotChance: 0.1,
+      // 0.15 -> 0.1 -> 0.08 (blockMin/blockMax alongside, 2/4 -> 3/6 -> 4/7):
+      // a mild further reduction once the previous 0.1/3/6 numbers actually
+      // started working as intended — they'd been silently broken by a
+      // block-rhythm state bug (fixed separately) that made lots far rarer
+      // than these numbers implied, so "too frequent" and "mild reduction"
+      // requests landed on top of numbers that weren't really in effect
+      // yet. Simulated against the real building dimensions before
+      // picking these: 0.1/3/6 -> ~1 lot per 64 units, 0.08/4/7 -> ~1 per
+      // 71 units, roughly a 10% reduction — a mild step, not another
+      // swing to the opposite extreme.
+      openLotChance: 0.08,
       // Widened again, [8,20] -> [13,38]: a real car park reads as a car
       // park partly through sheer number of marked spaces — at the old
       // minimum (8) a lot only fit ~3 parking-line stripes (openLotLineSpacing
@@ -230,12 +235,14 @@ const RunnerTheme = {
       // openLotMinGap above) once blockMax buildings have gone by — without
       // this a long run of buildings could go by with nothing but bad luck
       // on the roll, reading as "too close together" with no layout
-      // pattern. Raised 2/4 -> 3/6 (lots read as too frequent at 2-4 —
-      // user feedback), same rhythm on all three rows — see spawnCityRow
+      // pattern. 2/4 -> 3/6 -> 4/7, same rhythm on all three rows — see
+      // openLotChance's comment above for why "too frequent"/"mild
+      // reduction" feedback kept landing on numbers that weren't actually
+      // in effect yet (a since-fixed state bug). See spawnCityRow
       // (engine/runner.js) for how blockMin/blockMax and openLotMinGap
       // combine.
-      blockMin: 3,
-      blockMax: 6,
+      blockMin: 4,
+      blockMax: 7,
       // Minimum world-unit distance (buildings, since rooftop signs are
       // building-mounted) since the last rooftop sign before another can
       // roll — buildings pack edge-to-edge with zero gap, so without this
@@ -280,17 +287,16 @@ const RunnerTheme = {
     // beyond it.
     {
       setback: 15.5, maxWidth: 11, height: [10, 24], detail: 'low',
-      // openLotChance 0.15->0.1, blockMin/blockMax 2/4->3/6: same overall
-      // frequency reduction as row 0 (user feedback: lots felt too
-      // frequent) — see row 0's comment for the reasoning.
-      openLotChance: 0.1, openLotDepth: [10, 22],
-      openLotMinGap: 20, blockMin: 3, blockMax: 6,
+      // Same mild reduction as row 0 (0.1/3/6 -> 0.08/4/7) — see its
+      // comment for why.
+      openLotChance: 0.08, openLotDepth: [10, 22],
+      openLotMinGap: 20, blockMin: 4, blockMax: 7,
       openLotPavementSetback: 10.5, openLotPavementWidth: 10.5,
     },
     {
       setback: 27.5, maxWidth: 15, height: [14, 34], detail: 'low',
-      openLotChance: 0.1, openLotDepth: [12, 26],
-      openLotMinGap: 24, blockMin: 3, blockMax: 6,
+      openLotChance: 0.08, openLotDepth: [12, 26],
+      openLotMinGap: 24, blockMin: 4, blockMax: 7,
       openLotPavementSetback: 22.5, openLotPavementWidth: 14.5,
     },
   ],
