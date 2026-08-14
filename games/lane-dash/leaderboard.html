@@ -252,6 +252,25 @@
   (function () {
     const listEl = document.getElementById('leaderboard-rows');
 
+    // Preserve query parameters when clicking "Run Again" or Back button
+    if (window.location.search) {
+      const runAgainBtn = document.querySelector('.action-btn');
+      if (runAgainBtn) {
+        runAgainBtn.href = 'index.html' + window.location.search;
+      }
+      const backBtn = document.querySelector('.back-btn');
+      if (backBtn) {
+        backBtn.href = 'index.html' + window.location.search;
+      }
+    }
+
+    // Extract brandId and instanceId to filter scores (Tenant Isolation)
+    let activeBrandId = 'default-brand';
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      activeBrandId = urlParams.get('brandId') || urlParams.get('brand') || urlParams.get('userId') || 'default-brand';
+    } catch (e) {}
+
     // Read active brand styles from CSS vars so the page theme maps to sponsor colors
     const rootStyle = getComputedStyle(document.documentElement);
     const primaryColor = rootStyle.getPropertyValue('--rd-gold-1').trim();
@@ -271,6 +290,7 @@
         const { data, error } = await client
           .from(window.GAME_CONFIG.SCORES_TABLE || 'scores')
           .select('player_name, score')
+          .eq('brand_id', activeBrandId)
           .order('score', { ascending: false })
           .limit(10);
 

@@ -44,17 +44,26 @@ if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_PROJECT_URL_HERE') {
  * are free to ignore the return value.
  */
 async function submitScore(playerName, score) {
-  // TEMP DEBUG — confirms this function is actually being reached at all;
-  // an earlier attempt at this same integration silently no-op'd (placeholder
-  // config, or the page opened as file:// instead of served over http://),
-  // which read from the outside as "submitScore is broken" when it was never
-  // being called in a state that could succeed. Safe to remove once confirmed
-  // working against a real project, or leave — one line per submission.
   console.log('[Supabase] submitScore called', playerName, score);
-  if (!gameSupabaseClient) return false; // not configured — see the warning logged above
+  if (!gameSupabaseClient) return false;
+  
+  // Extract tenant isolation ids from active URL query params
+  let gameBrandId = 'default-brand';
+  let gameInstanceId = 'default-instance';
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    gameBrandId = urlParams.get('brandId') || urlParams.get('brand') || urlParams.get('userId') || 'default-brand';
+    gameInstanceId = urlParams.get('instanceId') || urlParams.get('id') || 'default-instance';
+  } catch (e) {}
+
   try {
     const { error } = await gameSupabaseClient.from(SCORES_TABLE).insert([
-      { player_name: playerName, score },
+      { 
+        player_name: playerName, 
+        score,
+        brand_id: gameBrandId,
+        instance_id: gameInstanceId
+      },
     ]);
     if (error) { console.warn('[Supabase] submitScore failed:', error.message); return false; }
     return true;

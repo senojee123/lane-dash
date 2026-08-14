@@ -154,5 +154,15 @@
 <script defer src="branding-loader.js"></script>
 <script defer src="../../engine/runner.js"></script>
 <script defer src="../../engine/touch-controls.js"></script>
+<script>
+  (function() {
+    if (window.location.search) {
+      const btn = document.getElementById('gameover-leaderboard-btn');
+      if (btn) {
+        btn.href = 'leaderboard.html' + window.location.search;
+      }
+    }
+  })();
+</script>
 </body>
 </html>
