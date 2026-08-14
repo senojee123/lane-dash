@@ -89,11 +89,21 @@
       if (Array.isArray(cfg.billboards) && cfg.billboards.length > 0) {
         RunnerBillboards.length = 0; // Clear defaults
         cfg.billboards.forEach((url) => {
-          RunnerBillboards.push({ type: 'image', url: url });
+          const isVideo = url.startsWith('data:video/') || 
+                          url.toLowerCase().endsWith('.mp4') || 
+                          url.toLowerCase().endsWith('.webm') || 
+                          url.toLowerCase().endsWith('.mov') ||
+                          url.includes('video');
+          RunnerBillboards.push({ type: isVideo ? 'video' : 'image', url: url });
         });
       } else if (cfg.billboardUrl) {
         RunnerBillboards.length = 0;
-        RunnerBillboards.push({ type: 'image', url: cfg.billboardUrl });
+        const isVideo = cfg.billboardUrl.startsWith('data:video/') || 
+                        cfg.billboardUrl.toLowerCase().endsWith('.mp4') || 
+                        cfg.billboardUrl.toLowerCase().endsWith('.webm') || 
+                        cfg.billboardUrl.toLowerCase().endsWith('.mov') ||
+                        cfg.billboardUrl.includes('video');
+        RunnerBillboards.push({ type: isVideo ? 'video' : 'image', url: cfg.billboardUrl });
       }
     }
 
