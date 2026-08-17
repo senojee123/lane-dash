@@ -176,38 +176,115 @@ html, body { width:100%; height:100%; overflow:hidden; background:var(--rd-bg); 
   position:fixed; inset:0; pointer-events:none; z-index:4;
   background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 100%);
 }
-#speedlines {
-  position:fixed; inset:0; pointer-events:none; z-index:3; opacity:0;
-  background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.05) 0deg 2deg, rgba(0,0,0,0) 2deg 8deg);
-  mix-blend-mode: screen;
-}
-
-/* Loading screen sits ABOVE the HUD (5) and every other overlay (10) and
-   is fully opaque, so nothing behind it — including the pop-in of models
-   that are still mid-load — is visible until loading finishes. */
-#loading-screen {
-  position:fixed; inset:0; z-index:20;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  background:linear-gradient(180deg, #180f2c, #08050f);
-  color:#fff; text-align:center;
-}
-#loading-screen.hidden { display:none; }
-.loading-spinner {
-  width:52px; height:52px; border-radius:50%; margin-bottom:22px;
-  border:5px solid rgba(255,255,255,.15); border-top-color:#ffcf33;
-  animation: loading-spin .9s linear infinite;
-}
-@keyframes loading-spin { to { transform:rotate(360deg); } }
-.loading-text { font-size:14px; opacity:.8; }
-.loading-bar-track {
-  width:min(340px, 70vw); height:8px; border-radius:6px; margin-top:16px;
-  background:rgba(255,255,255,.15); overflow:hidden;
-}
-.loading-bar-fill {
-  height:100%; width:0%; background:linear-gradient(90deg, var(--rd-gold-1), var(--rd-gold-2));
-  transition:width .15s ease;
-}
 
 .pause-line {
   font-size:16px; font-weight:700; opacity:.85; margin-bottom:6px;
+}
+
+/* ============================================================================
+   LANE DASH AAA CINEMATIC LOADING SCREEN
+   Futuristic, dark-themed canvas preloader featuring 3D perspective highway,
+   floating game objects, metallic neon title, energy wave loading, andwarp fly-through.
+   ============================================================================ */
+#loading-screen {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: #08080c;
+  color: #fff; text-align: center; overflow: hidden;
+  user-select: none; -webkit-user-select: none;
+}
+#loading-screen.hidden { display: none !important; }
+
+/* 2D Canvas covering full screen */
+#loading-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 1;
+}
+
+/* Centered UI Overlay Stack */
+.loading-overlay-content {
+  position: relative; z-index: 10;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; pointer-events: none;
+  padding: 20px;
+}
+
+.loading-logo-box {
+  min-height: 48px; display: flex; align-items: center; justify-content: center;
+}
+.loading-logo-box .sponsor-logo {
+  max-width: min(240px, 60vw); max-height: 60px;
+  object-fit: contain; margin: 0 0 10px;
+  filter: drop-shadow(0 0 16px rgba(0, 240, 255, 0.4));
+}
+
+/* Metallic Neon Title */
+.loading-title {
+  font-size: clamp(48px, 11vw, 84px); font-weight: 900; letter-spacing: 6px;
+  line-height: 1.1; margin: 0;
+  background: linear-gradient(180deg, #ffffff 0%, var(--rd-gold-1, #ffe259) 45%, var(--rd-gold-2, #ffa751) 75%, var(--rd-accent-3, #ff5f8f) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 24px rgba(255, 209, 102, 0.5)) drop-shadow(0 8px 32px rgba(0, 0, 0, 0.8));
+  font-family: 'Inter Tight', 'Segoe UI', system-ui, sans-serif;
+  text-transform: uppercase;
+}
+
+/* Minimalist Percentage Counter */
+.loading-pct-container {
+  font-size: clamp(40px, 8vw, 64px); font-weight: 900; line-height: 1;
+  letter-spacing: -1px; margin-top: 4px;
+  color: #ffffff;
+  font-family: 'Inter Tight', 'Segoe UI', system-ui, sans-serif;
+  display: flex; align-items: baseline; justify-content: center; gap: 2px;
+  text-shadow: 0 0 20px rgba(0, 240, 255, 0.6), 0 4px 16px rgba(0,0,0,0.8);
+}
+.loading-pct-container .pct-sign {
+  font-size: clamp(20px, 4vw, 32px); font-weight: 800;
+  color: var(--rd-gold-1, #ffe259); opacity: 0.9;
+}
+
+/* Warp Speed Fly-Through Camera Exit Animation */
+#loading-screen.loading-screen-warp {
+  animation: loading-screen-warp-exit 0.75s cubic-bezier(0.7, 0, 0.2, 1) forwards;
+  pointer-events: none;
+}
+@keyframes loading-screen-warp-exit {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0px);
+  }
+  60% {
+    opacity: 0.8;
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+    filter: blur(18px);
+  }
+}
+
+/* Clean Participation Card & Bottom Sponsor Footer */
+.start-card {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  margin: auto 0; z-index: 2;
+}
+.start-heading {
+  font-size: clamp(16px, 4vw, 22px); font-weight: 800; letter-spacing: 1.5px;
+  text-transform: uppercase; margin-bottom: 20px;
+  background: linear-gradient(90deg, var(--rd-gold-1, #ffe259), var(--rd-gold-2, #ffa751));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6));
+}
+
+.start-footer {
+  position: absolute; bottom: 24px; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2; pointer-events: none;
+}
+.start-footer .sponsor-logo {
+  max-height: 42px; max-width: min(200px, 50vw);
+  width: auto; height: auto; object-fit: contain; margin: 0;
+  filter: drop-shadow(0 2px 10px rgba(0,0,0,0.5));
 }

@@ -30,11 +30,16 @@
 <div id="flash-overlay"></div>
 
 <div id="loading-screen">
-  <img class="sponsor-logo" id="loading-sponsor-logo" alt="" style="display:none;">
-  <div class="title-logo" style="font-size:clamp(30px,7vw,52px);">LANE DASH</div>
-  <div class="loading-spinner"></div>
-  <div class="loading-text" id="loading-text">Loading assets&hellip;</div>
-  <div class="loading-bar-track"><div class="loading-bar-fill" id="loading-bar-fill"></div></div>
+  <canvas id="loading-canvas"></canvas>
+  <div class="loading-overlay-content">
+    <div class="loading-logo-box">
+      <img class="sponsor-logo" id="loading-sponsor-logo" alt="" style="display:none;">
+    </div>
+    <h1 class="loading-title">LANE DASH</h1>
+    <div class="loading-pct-container">
+      <span id="loading-pct-num">0</span><span class="pct-sign">%</span>
+    </div>
+  </div>
 </div>
 
 <div id="hud" style="display:none;">
@@ -55,11 +60,15 @@
 <div id="countdown" class="hidden"><div id="countdown-text"></div></div>
 
 <div id="start-screen" class="overlay">
-  <img class="sponsor-logo" id="start-sponsor-logo" alt="" style="display:none;">
-  <div class="title-logo">LANE DASH</div>
-  <input type="text" id="username-input" class="name-input" placeholder="Enter your name..." maxlength="12">
-  <div class="bank-line"><span class="coin-dot"></span><span id="bank-line-text">coins &times; distance multiplier = score</span></div>
-  <button class="big-btn" id="start-btn">TAP TO RUN</button>
+  <div class="start-card">
+    <div class="start-heading">Enter Your Name To Participate</div>
+    <input type="text" id="username-input" class="name-input" placeholder="Enter your name..." maxlength="12">
+    <div class="bank-line"><span class="coin-dot"></span><span id="bank-line-text">coins &times; distance multiplier = score</span></div>
+    <button class="big-btn" id="start-btn">TAP TO RUN</button>
+  </div>
+  <div class="start-footer">
+    <img class="sponsor-logo" id="start-sponsor-logo" alt="" style="display:none;">
+  </div>
 </div>
 
 <div id="gameover-screen" class="overlay hidden">
@@ -84,26 +93,48 @@
   <div style="margin-top:16px; opacity:.6; font-size:13px;">Tap CONTINUE to resume</div>
 </div>
 
-<!-- Loading progress tracker: every asset-loading module (assets.js's model
-     cache users — cityModels.js / trafficVehicles.js / character.js) reports
-     into this as it goes, so the loading screen above can't be dismissed
-     until everything it counted has actually resolved. Declared before the
-     library/game scripts so it exists by the time they run. -->
 <script>
   window.AssetLoader = {
     total: 0,
     loaded: 0,
+    currentPct: 0,
+    targetPct: 0,
+    animating: false,
     add(n) { this.total += n; this._render(); },
     tick() { this.loaded++; this._render(); },
     _render() {
-      const textEl = document.getElementById('loading-text');
-      const fillEl = document.getElementById('loading-bar-fill');
-      if (!this.total) { if (textEl) textEl.textContent = 'Loading assets…'; return; }
-      const done = Math.min(this.loaded, this.total);
-      const pct = (done / this.total) * 100;
-      if (textEl) textEl.textContent = 'Loading assets… ' + done + ' / ' + this.total;
-      if (fillEl) fillEl.style.width = pct + '%';
+      if (!this.total) {
+        this.targetPct = 0;
+      } else {
+        const done = Math.min(this.loaded, this.total);
+        this.targetPct = Math.round((done / this.total) * 100);
+      }
+      this._startCountAnimation();
     },
+    _startCountAnimation() {
+      if (this.animating) return;
+      this.animating = true;
+      const step = () => {
+        if (this.currentPct < this.targetPct) {
+          this.currentPct += Math.max(1, Math.ceil((this.targetPct - this.currentPct) * 0.12));
+          if (this.currentPct > this.targetPct) this.currentPct = this.targetPct;
+          this._updateDOM();
+          requestAnimationFrame(step);
+        } else {
+          this.currentPct = this.targetPct;
+          this._updateDOM();
+          this.animating = false;
+        }
+      };
+      requestAnimationFrame(step);
+    },
+    _updateDOM() {
+      const numEl = document.getElementById('loading-pct-num');
+      if (numEl) numEl.textContent = this.currentPct;
+      if (window.LaneDashLoaderFX) {
+        window.LaneDashLoaderFX.setProgress(this.currentPct);
+      }
+    }
   };
 </script>
 

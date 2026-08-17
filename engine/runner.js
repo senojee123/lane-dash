@@ -1935,24 +1935,295 @@ CityModels.init().then(() => {
   if (Game.state !== 'playing') initTrack();
 });
 
-// LOADING SCREEN — stays up (blocking every other view, per its own z-index)
-// until every asset-loading module has settled, success or failure alike, so
-// the pop-in that used to happen after the start screen already showed can
-// never be seen. Each of these three calls returns the SAME cached promise
-// the module kicked off at file-load time; calling init() again here just
-// lets this file hook onto it, it does not re-trigger any loading.
+// ============================================================================
+// LANE DASH AAA CINEMATIC LOADING CANVAS ENGINE
+// 3D Perspective Cyber Highway, Floating Game Collectibles, Energy Wave Loader,
+// Particle Stars, Ambient Pulse Light, and Camera Warp Fly-Through.
+// ============================================================================
+(function initLaneDashCinematicLoader() {
+  const canvas = document.getElementById('loading-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let width, height;
+  let animId;
+  let progressPct = 0;
+  let speedMultiplier = 1.0;
+  let isWarping = false;
+  let lastPulsePct = 0;
+  let pulseAlpha = 0;
+
+  function resize() {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // 1. Perspective Road Parameters
+  const horizonRatio = 0.44;
+  let roadOffset = 0;
+
+  // 2. Particle Starfield System
+  const particles = [];
+  const particleCount = 70;
+  for (let i = 0; i < particleCount; i++) {
+    particles.push({
+      x: (Math.random() - 0.5) * 2000,
+      y: (Math.random() - 0.5) * 1200,
+      z: Math.random() * 1000 + 1,
+      color: Math.random() > 0.5 ? '#00F0FF' : '#FF007A'
+    });
+  }
+
+  // 3. Floating Game Assets (Coins, Speed Cones, Cyber Vehicles, Boost Chevrons)
+  const floatingObjects = [];
+  const objectTypes = ['coin', 'chevron', 'cone', 'car'];
+  for (let i = 0; i < 9; i++) {
+    floatingObjects.push({
+      type: objectTypes[i % objectTypes.length],
+      x: (Math.random() - 0.5) * (width * 0.75),
+      y: (Math.random() - 0.5) * (height * 0.65),
+      size: Math.random() * 14 + 18,
+      floatSpeed: Math.random() * 0.002 + 0.001,
+      rotSpeed: (Math.random() - 0.5) * 0.02,
+      rotation: Math.random() * Math.PI * 2,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+
+  // Set progress helper exposed to AssetLoader
+  window.LaneDashLoaderFX = {
+    setProgress(pct) {
+      progressPct = Math.min(100, Math.max(0, pct));
+      if (progressPct - lastPulsePct >= 20 && progressPct < 95) {
+        lastPulsePct = progressPct;
+        pulseAlpha = 0.55;
+      }
+      if (progressPct >= 95 && !isWarping) {
+        isWarping = true;
+      }
+    }
+  };
+
+  // Main Render Loop (60 FPS)
+  function render(time) {
+    const screen = document.getElementById('loading-screen');
+    if (!screen || screen.classList.contains('hidden')) return;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const horizonY = height * horizonRatio;
+    const centerX = width / 2;
+
+    // A. Deep Space Obsidian Background Gradient
+    const bgGrad = ctx.createRadialGradient(centerX, horizonY, 10, centerX, horizonY, Math.max(width, height));
+    bgGrad.addColorStop(0, '#160a28');
+    bgGrad.addColorStop(0.4, '#0b0614');
+    bgGrad.addColorStop(1, '#050308');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    // Speed acceleration on warp
+    if (isWarping) {
+      speedMultiplier += 0.15;
+    }
+
+    // B. Draw 3D Floating Particles
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.z -= 4 * speedMultiplier;
+      if (p.z <= 0) p.z = 1000;
+
+      const k = 300 / p.z;
+      const px = centerX + p.x * k;
+      const py = horizonY + p.y * k;
+
+      if (px >= 0 && px <= width && py >= 0 && py <= height) {
+        const pSize = Math.max(0.5, (1 - p.z / 1000) * 3.5);
+        const pAlpha = (1 - p.z / 1000) * 0.8;
+        ctx.save();
+        ctx.globalAlpha = pAlpha;
+        ctx.fillStyle = p.color;
+        if (isWarping) {
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(px + (px - centerX) * 0.1, py + (py - horizonY) * 0.1);
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = pSize;
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.arc(px, py, pSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    // C. Draw 3D Perspective Cyber Highway
+    roadOffset += 0.02 * speedMultiplier;
+    const roadBottomWidth = width * 0.85;
+    const roadTopWidth = width * 0.08;
+    const roadBottomLeft = centerX - roadBottomWidth / 2;
+    const roadBottomRight = centerX + roadBottomWidth / 2;
+    const roadTopLeft = centerX - roadTopWidth / 2;
+    const roadTopRight = centerX + roadTopWidth / 2;
+
+    // Highway Base Gradient
+    const roadGrad = ctx.createLinearGradient(0, horizonY, 0, height);
+    roadGrad.addColorStop(0, 'rgba(10, 5, 25, 0.4)');
+    roadGrad.addColorStop(0.6, 'rgba(20, 10, 45, 0.85)');
+    roadGrad.addColorStop(1, 'rgba(5, 2, 12, 0.95)');
+    ctx.fillStyle = roadGrad;
+
+    ctx.beginPath();
+    ctx.moveTo(roadTopLeft, horizonY);
+    ctx.lineTo(roadTopRight, horizonY);
+    ctx.lineTo(roadBottomRight, height);
+    ctx.lineTo(roadBottomLeft, height);
+    ctx.closePath();
+    ctx.fill();
+
+    // Outer Neon Border Lines
+    ctx.save();
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = '#00F0FF';
+    ctx.strokeStyle = '#00F0FF';
+    ctx.lineWidth = 2.5;
+
+    ctx.beginPath();
+    ctx.moveTo(roadTopLeft, horizonY);
+    ctx.lineTo(roadBottomLeft, height);
+    ctx.moveTo(roadTopRight, horizonY);
+    ctx.lineTo(roadBottomRight, height);
+    ctx.stroke();
+    ctx.restore();
+
+    // Moving Perspective Lane Lines
+    const numLanes = 3;
+    const numZSegments = 16;
+
+    for (let z = 0; z < numZSegments; z++) {
+      const zProgress = (z / numZSegments + roadOffset) % 1.0;
+      const py = horizonY + Math.pow(zProgress, 2.2) * (height - horizonY);
+      const currentWidth = roadTopWidth + Math.pow(zProgress, 2.2) * (roadBottomWidth - roadTopWidth);
+
+      const segmentAlpha = Math.sin(zProgress * Math.PI) * 0.7;
+      ctx.save();
+      ctx.globalAlpha = segmentAlpha;
+      ctx.strokeStyle = '#FF007A';
+      ctx.lineWidth = Math.max(1, zProgress * 4);
+
+      for (let l = 1; l < numLanes; l++) {
+        const laneX = centerX - currentWidth / 2 + (currentWidth / numLanes) * l;
+        const dashHeight = Math.max(2, zProgress * 14);
+        ctx.beginPath();
+        ctx.moveTo(laneX, py);
+        ctx.lineTo(laneX, py + dashHeight);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // D. Loading Progress Energy Pulse Wave on Highway
+    const targetY = horizonY + Math.pow(progressPct / 100, 2.0) * (height - horizonY);
+    const waveWidth = roadTopWidth + Math.pow(progressPct / 100, 2.0) * (roadBottomWidth - roadTopWidth);
+    ctx.save();
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#ffe259';
+    ctx.strokeStyle = '#ffe259';
+    ctx.lineWidth = Math.max(3, (progressPct / 100) * 8);
+
+    ctx.beginPath();
+    ctx.moveTo(centerX - waveWidth / 2, targetY);
+    ctx.lineTo(centerX + waveWidth / 2, targetY);
+    ctx.stroke();
+    ctx.restore();
+
+    // E. Floating Objects (Coins, Chevrons, Cones)
+    for (let i = 0; i < floatingObjects.length; i++) {
+      const obj = floatingObjects[i];
+      obj.rotation += obj.rotSpeed;
+      const floatY = Math.sin(time * obj.floatSpeed + obj.phase) * 16;
+      const ox = centerX + obj.x;
+      const oy = horizonY + obj.y + floatY;
+
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.rotate(obj.rotation);
+
+      if (obj.type === 'coin') {
+        ctx.fillStyle = '#ffe259';
+        ctx.shadowColor = '#ffe259';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(0, 0, obj.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffa751';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else if (obj.type === 'chevron') {
+        ctx.strokeStyle = '#00F0FF';
+        ctx.shadowColor = '#00F0FF';
+        ctx.shadowBlur = 14;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-obj.size * 0.5, -obj.size * 0.4);
+        ctx.lineTo(0, obj.size * 0.4);
+        ctx.lineTo(obj.size * 0.5, -obj.size * 0.4);
+        ctx.stroke();
+      } else if (obj.type === 'cone') {
+        ctx.fillStyle = '#FF007A';
+        ctx.shadowColor = '#FF007A';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.moveTo(0, -obj.size * 0.6);
+        ctx.lineTo(obj.size * 0.4, obj.size * 0.5);
+        ctx.lineTo(-obj.size * 0.4, obj.size * 0.5);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.fillStyle = '#7c4dff';
+        ctx.shadowColor = '#7c4dff';
+        ctx.shadowBlur = 10;
+        ctx.fillRect(-obj.size * 0.5, -obj.size * 0.3, obj.size, obj.size * 0.6);
+      }
+      ctx.restore();
+    }
+
+    // F. Screen-wide Ambient Pulse Light
+    if (pulseAlpha > 0.01) {
+      ctx.save();
+      ctx.globalAlpha = pulseAlpha;
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+      pulseAlpha *= 0.94;
+    }
+
+    animId = requestAnimationFrame(render);
+  }
+
+  requestAnimationFrame(render);
+})();
+
+// LOADING SCREEN — stays up until every asset module settles.
 const loadingScreenEl = document.getElementById('loading-screen');
-const loadingBarFillEl = document.getElementById('loading-bar-fill');
-// The bar's CSS width transition (.15s) is still visually catching up to the
-// last tick() call the instant this promise settles — hiding the screen
-// immediately would cut the fill off short of 100%. Force it to full and
-// give the transition time to actually finish painting before dismissing.
-const LOADING_BAR_SETTLE_MS = 250;
+
 Promise.all([characterLoadPromise, CityModels.init(), TrafficVehicles.init()]).then(() => {
-  if (loadingBarFillEl) loadingBarFillEl.style.width = '100%';
+  if (window.AssetLoader) {
+    window.AssetLoader.targetPct = 100;
+    window.AssetLoader._startCountAnimation();
+  }
   setTimeout(() => {
-    if (loadingScreenEl) loadingScreenEl.classList.add('hidden');
-  }, LOADING_BAR_SETTLE_MS);
+    if (loadingScreenEl) {
+      loadingScreenEl.classList.add('loading-screen-warp');
+      setTimeout(() => {
+        loadingScreenEl.classList.add('hidden');
+      }, 700);
+    }
+  }, 400);
 });
 
 tick();
+
